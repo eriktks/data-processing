@@ -13,9 +13,10 @@ import xml.etree.ElementTree as ET
 
 COMMAND = sys.argv.pop(0)
 USAGE = "usage: "+COMMAND+" file1 [file2 ...]"
-INTAKE = "./Intake/Questionnaire/Content/question/answer"
-HALFTIME = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire/Content/question/answer"
-ENDTIME = HALFTIME
+INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
+QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
+QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
+ANSWERS = "./Content/question/answer"
 DIARYENTRIES = "./Diary/DiaryEntries/DiaryEntry"
 MESSAGES = "./Messages/Message"
 AGE = "leeftijd"
@@ -47,8 +48,7 @@ BODY = "Body"
 SUBJECT = "Subject"
 DATEID = 1
 BODYID = 3
-OUTPUTDIR = "../usb/output"
-PATIENTFILE = OUTPUTDIR+"/patients.csv"
+OUTPUTDIR = "/home/erikt/projects/e-mental-health/usb/output"
 EMAILFILE = OUTPUTDIR+"/emails.csv"
 
 def cleanupText(text):
@@ -57,86 +57,10 @@ def cleanupText(text):
     text = re.sub(r" $","",text)
     return(text)
 
-def getAnswer(root,questionnaire,field):
-    answers = []
-    for answer in root.findall(questionnaire):
-        if answer.attrib["ID"] == field:
-            for answerText in answer:
-                if answerText.tag == "answerText":
-                    answer = cleanupText(answerText.text)
-                    if answer == AMBIVALENT: answer = re.sub(",","",answer)
-                    answer = re.sub(r"\s*,.*","",answer)
-                    answers.append(answer)
-    return(answers)
-
-def count(root,elements):
-    count = 0
-    for element in root.findall(elements): count += 1
-    return(count)
-
-def countChildText(root,elements,tag,text):
-    count = 0
-    for element in root.findall(elements): 
-        for child in element:
-            if child.tag == tag and cleanupText(child.text) == text: count += 1
-    return(count)
-
-def countAll(root,elementName):
-    count = 0
-    for element in root.iter(elementName): count += 1
-    return(count)
-
 def makeId(fileName):
     thisId = re.sub(r".*/","",fileName)
     thisId = re.sub(r"\.xml$","",thisId)
     return(thisId)
-
-def getPatientData(root,thisId):
-    try: gender = getAnswer(root,INTAKE,GENDER)[0]
-    except: gender = ""
-    try: age = getAnswer(root,INTAKE,AGE)[0]
-    except: age = ""
-    age = re.sub(AGEEXTRA,"",age)
-    try: marital = getAnswer(root,INTAKE,MARITAL)[0]
-    except: marital = ""
-    try: education = getAnswer(root,INTAKE,EDUCATION)[0]
-    except: education = ""
-    try: employment = getAnswer(root,INTAKE,EMPLOYMENT)[0]
-    except: employment = ""
-    try: medication = getAnswer(root,INTAKE,MEDICATION)[0]
-    except: medication = ""
-    try: smoking = getAnswer(root,INTAKE,SMOKING)[0]
-    except: smoking = ""
-    try: drugs = getAnswer(root,INTAKE,DRUGS)[0]
-    except: drugs = ""
-    try: gambling = getAnswer(root,INTAKE,GAMBLING)[0]
-    except: gambling = ""
-    try: pastTherapyDrink = getAnswer(root,INTAKE,PASTTHERAPYDRINK)[0]
-    except: pastTherapyDrink = ""
-    try: pastTherapyPsych = getAnswer(root,INTAKE,PASTTHERAPYPSYCH)[0]
-    except: pastTherapyPsych = ""
-    try: drinkLessH = getAnswer(root,HALFTIME,DRINKLESSH)[0]
-    except: drinkLessH = ""
-    try: markCounselorH = getAnswer(root,HALFTIME,MARKCOUNSELOR)[0]
-    except: markCounselorH = ""
-    try: effectiveH = getAnswer(root,HALFTIME,EFFECTIVEH)[0]
-    except: effectiveH = ""
-    try: recommendH = getAnswer(root,HALFTIME,RECOMMENDH)[0]
-    except: recommendH = ""
-    nbrOfDiaryEntries = count(root,DIARYENTRIES)
-    nbrOfMessages = count(root,MESSAGES)
-    nbrOfClientMessages = countChildText(root,MESSAGES,SENDER,CLIENT)
-    nbrOfCounselorMessages = countChildText(root,MESSAGES,RECIPIENT,CLIENT)
-    nbrOfQuestions = countAll(root,QUESTION)
-    try: drinkLessE = getAnswer(root,ENDTIME,DRINKLESSE)[0]
-    except: drinkLessE = ""
-    try: markCounselorE = getAnswer(root,ENDTIME,MARKCOUNSELOR)[1]
-    except: markCounselorE = ""
-    try: effectiveE = getAnswer(root,ENDTIME,EFFECTIVEE)[0]
-    except: effectiveE = ""
-    try: recommendE = getAnswer(root,ENDTIME,RECOMMENDE)[0]
-    except: recommendE = ""
-    return([thisId,gender,age,marital,education,employment,medication,smoking,drugs,gambling,pastTherapyDrink,pastTherapyPsych,drinkLessH,markCounselorH,effectiveH,recommendH,drinkLessE,markCounselorE,effectiveE,recommendE,nbrOfDiaryEntries,nbrOfMessages,nbrOfClientMessages,nbrOfCounselorMessages])
 
 def getEmailData(root,thisId):
     clientMails = []
@@ -213,14 +137,69 @@ def store(array,outFileName):
         for row in array: csvwriter.writerow(row)
     csvfile.close()
 
-patients = []
-emails = []
-for inFile in sys.argv:
-    tree = ET.parse(inFile)
-    root = tree.getroot()
-    thisId = makeId(inFile)
-    patients.append(getPatientData(root,thisId))
-    emails.extend(getEmailData(root,thisId))
-store(patients,PATIENTFILE)
-store(emails,EMAILFILE)
+def getQuestionnaires(root,thisId):
+    qs = []
+    for questionnaires in INTAKEQUESTIONNAIRE,QUESTIONNAIRE:
+        for questionnaire in root.findall(questionnaires):
+            title = cleanupText(questionnaire.findall("./Title")[0].text)
+            if title in QUESTIONNAIRETITLES:
+                q = {"title":title,"id":thisId}
+                for answer in questionnaire.findall(ANSWERS):
+                    try:
+                        key = answer.attrib["ID"]
+                        value = cleanupText(answer.findall("./answerText")[0].text)
+                        q[key] = value
+                    except: continue 
+                qs.append(q)
+    return(qs)
 
+def getTitles(questionnaires):
+    titles = {}
+    for q in questionnaires: titles[q["title"]] = True
+    return(titles)
+
+def getColumns(questionnaires,title):
+    columns = {}
+    for questionnaire in questionnaires:
+        if questionnaire["title"] == title:
+            for field in questionnaire.keys():
+                columns[field] = True
+    return(columns)
+
+def storeDictTitles(questionnaires):
+    titles = getTitles(questionnaires)
+    for title in titles.keys():
+        columns = getColumns(questionnaires,title)
+        outFileName = OUTPUTDIR+"/"+title+".csv"
+        with open(outFileName,"w",encoding="utf8") as csvfile:
+            csvwriter = csv.writer(csvfile,delimiter=',',quotechar='"')
+            heading = []
+            for columnName in sorted(columns.keys()): 
+                heading.append(columnName)
+            csvwriter.writerow(heading)
+            for questionnaire in questionnaires:
+                if questionnaire["title"] == title:
+                    row = []
+                    for columnName in sorted(columns.keys()): 
+                        try: row.append(questionnaire[columnName])
+                        except: row.append("")
+                    csvwriter.writerow(row)
+            csvfile.close()
+    return()
+
+def main(argv):
+    patients = []
+    emails = []
+    questionnaires = []
+    for inFile in sys.argv:
+        tree = ET.parse(inFile)
+        root = tree.getroot()
+        thisId = makeId(inFile)
+        emails.extend(getEmailData(root,thisId))
+        questionnaires.extend(getQuestionnaires(root,thisId))
+    store(emails,EMAILFILE)
+    storeDictTitles(questionnaires)
+    return(0)
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
