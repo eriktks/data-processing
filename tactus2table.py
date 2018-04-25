@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -W all
+#!/usr/bin/python3
 """
     tactus2table.py: convert xml files from tactus to csv tables
     usage: tactus2table.py file1 [file2 ...]
@@ -7,6 +7,7 @@
 
 import csv
 import nltk
+import operator
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -17,39 +18,21 @@ INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
 QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
 ANSWERS = "./Content/question/answer"
-DIARYENTRIES = "./Diary/DiaryEntries/DiaryEntry"
 MESSAGES = "./Messages/Message"
 AGE = "leeftijd"
-AGEEXTRA = " Leeftijd in jaren"
-GENDER = "geslacht"
-MARITAL = "woonsit"
-EDUCATION = "opleidng"
-EMPLOYMENT = "dagb"
-MEDICATION = "medicijn"
-SMOKING = "roken"
-DRUGS = "drugs"
-GAMBLING = "gokken"
-PASTTHERAPYDRINK = "behdrink"
-PASTTHERAPYPSYCH = "psych"
-DRINKLESSH = "rcq1t"
-MARKCOUNSELOR = "cijferhvn"
-EFFECTIVEH = "intefft"
-RECOMMENDH = "aanbevt"
 CLIENT = "CLIENT"
+COUNSELOR = "COUNSELOR"
 SENDER = "Sender"
 RECIPIENT = "Recipients"
 QUESTION = "question"
-DRINKLESSE = "rcq1n"
-EFFECTIVEE = "inteffn"
-RECOMMENDE = "aanbevn"
-AMBIVALENT = "Niet mee eens, niet mee oneens"
 DATE = "DateSent"
 BODY = "Body"
 SUBJECT = "Subject"
-DATEID = 1
-BODYID = 3
+MAILDATEID = 3
+MAILBODYID = 5
 OUTPUTDIR = "/home/erikt/projects/e-mental-health/usb/output"
 EMAILFILE = OUTPUTDIR+"/emails.csv"
+EMAILHEADING = ["id","sender","receipient","date","subject","text"]
 
 def cleanupText(text):
     text = re.sub(r"\s+"," ",text)
@@ -62,23 +45,34 @@ def makeId(fileName):
     thisId = re.sub(r"\.xml$","",thisId)
     return(thisId)
 
+def anonymizeCounselor(name):
+    if name != CLIENT: return(COUNSELOR)
+    else: return(name)
+
 def getEmailData(root,thisId):
     clientMails = []
     counselorMails = []
     for message in root.findall(MESSAGES):
         body = ""
         date = ""
+        recipient = ""
         sender = ""
         subject = ""
         for child in message:
-            if child.tag == SENDER: sender = cleanupText(child.text)
+            if child.tag == SENDER: 
+                sender = anonymizeCounselor(cleanupText(child.text))
+            elif child.tag == RECIPIENT: 
+                recipient = anonymizeCounselor(cleanupText(child.text))
             elif child.tag == DATE: date = cleanupText(child.text)
             elif child.tag == SUBJECT: subject = cleanupText(child.text)
             elif child.tag == BODY: body = cleanupText(child.text)
-        if sender == CLIENT: clientMails.append([thisId,date,subject,body])
-        else: counselorMails.append([thisId,date,subject,body])
+        if sender == CLIENT: clientMails.append([thisId,sender,recipient,date,subject,body])
+        else: counselorMails.append([thisId,sender,recipient,date,subject,body])
     clientMails = cleanupMails(clientMails,counselorMails)
-    return(clientMails)
+    counselorMails = cleanupMails(counselorMails,clientMails)
+    allMails = clientMails
+    allMails.extend(counselorMails)
+    return(sorted(allMails,key=lambda subList:subList[MAILDATEID]))
 
 # the sentence chunks produced by nltk are quite coarse and
 # leave too much of the quoted text in the emails
@@ -100,16 +94,16 @@ def cleanupMails(clientMails, counselorMails):
     clientSentenceDates = {}
     counselorSentenceDates = {}
     for i in range(0,len(clientMails)):
-        date = clientMails[i][DATEID]
-        body = clientMails[i][BODYID]
+        date = clientMails[i][MAILDATEID]
+        body = clientMails[i][MAILBODYID]
         sentences = sentenceSplit(body)
         for s in sentences:
             if (s in clientSentenceDates and date < clientSentenceDates[s]) or \
                 not s in clientSentenceDates:
                 clientSentenceDates[s] = date
     for i in range(0,len(counselorMails)):
-        date = counselorMails[i][DATEID]
-        body = counselorMails[i][BODYID]
+        date = counselorMails[i][MAILDATEID]
+        body = counselorMails[i][MAILBODYID]
         sentences = sentenceSplit(body)
         for s in sentences:
             if s in clientSentenceDates and date < clientSentenceDates[s]:
@@ -120,20 +114,21 @@ def cleanupMails(clientMails, counselorMails):
             elif not s in clientSentenceDates and not s in counselorSentenceDates:
                 counselorSentenceDates[s] = date
     for i in range(0,len(clientMails)):
-        date = clientMails[i][DATEID]
-        body = clientMails[i][BODYID]
+        date = clientMails[i][MAILDATEID]
+        body = clientMails[i][MAILBODYID]
         sentences = sentenceSplit(body)
         body = ""
         for s in sentences:
             if s in clientSentenceDates and clientSentenceDates[s] == date:
                 if body != "": body += " "
                 body += s
-        clientMails[i][BODYID] = body
+        clientMails[i][MAILBODYID] = body
     return(clientMails)
 
 def store(array,outFileName):
     with open(outFileName,"w",encoding="utf8") as csvfile:
         csvwriter = csv.writer(csvfile,delimiter=',',quotechar='"')
+        csvwriter.writerow(EMAILHEADING)
         for row in array: csvwriter.writerow(row)
     csvfile.close()
 
@@ -188,7 +183,6 @@ def storeDictTitles(questionnaires):
     return()
 
 def main(argv):
-    patients = []
     emails = []
     questionnaires = []
     for inFile in sys.argv:
@@ -197,7 +191,7 @@ def main(argv):
         thisId = makeId(inFile)
         emails.extend(getEmailData(root,thisId))
         questionnaires.extend(getQuestionnaires(root,thisId))
-    store(emails,EMAILFILE)
+    if len(emails) > 0: store(emails,EMAILFILE)
     storeDictTitles(questionnaires)
     return(0)
 
