@@ -49,6 +49,9 @@ def anonymizeCounselor(name):
     if name != CLIENT: return(COUNSELOR)
     else: return(name)
 
+def tokenize(text):
+    return(" ".join(nltk.word_tokenize(text)))
+
 def getEmailData(root,thisId):
     clientMails = []
     counselorMails = []
@@ -64,7 +67,7 @@ def getEmailData(root,thisId):
             elif child.tag == RECIPIENT: 
                 recipient = anonymizeCounselor(cleanupText(child.text))
             elif child.tag == DATE: date = cleanupText(child.text)
-            elif child.tag == SUBJECT: subject = cleanupText(child.text)
+            elif child.tag == SUBJECT: subject = tokenize(cleanupText(child.text))
             elif child.tag == BODY: body = cleanupText(child.text)
         if sender == CLIENT: clientMails.append([thisId,sender,recipient,date,subject,body])
         else: counselorMails.append([thisId,sender,recipient,date,subject,body])
