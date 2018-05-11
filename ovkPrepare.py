@@ -25,10 +25,10 @@ DATEPATTERNNUMMONTH = 4
 DATEPATTERNNUMYEAR = 5
 DEFAULTYEAR = "2011"
 FROMHEADING = "EFrom: "
-GREETPATTERN = r"^([A-Za-z]+)\s+([A-Za-z0-9]+)\b"
+GREETPATTERN = r"^\s*([A-Za-z]+)\s+((heer|meneer|mevrouw)\s+)?([A-Za-z0-9]+)\b"
 GREETPATTERNGREET = 1
-GREETPATTERNTARGET = 2
-GREETINGS = ["Beste","Dag","Goedeavond","Goedemorgen","Hallo","Hi","Hoi"]
+GREETPATTERNTARGET = 4
+GREETINGS = ["beste","dag","goedeavond","goedemorgen","hallo","hee","hi","hoi","Lieve"]
 MONTHS = { "jan":"1","feb":"2","mrt":"3","apr":"4","mei":"5","jun":"6", \
            "jul":"7","aug":"8","sep":"9","okt":"10","nov":"11","dec":"12",
            "maart":"3","april":"4" }
@@ -63,7 +63,7 @@ def getCounselorName(lines):
         if matchName and containsChars(matchName.group(NAMEPATTERNTARGET)): 
             candidate = matchName.group(NAMEPATTERNTARGET)
         elif matchGreet and containsChars(matchGreet.group(GREETPATTERNGREET)) \
-             and matchGreet.group(GREETPATTERNGREET) in GREETINGS: 
+             and matchGreet.group(GREETPATTERNGREET).lower() in GREETINGS: 
             candidate = matchGreet.group(GREETPATTERNTARGET)
         if candidate != "":
             if candidate in candidates: candidates[candidate] += 1
@@ -104,15 +104,17 @@ def getDateNum(line):
     return(date)
 
 def getDateAlpha(line):
-    matchDateAlpha = re.search(DATEPATTERNALPHA,line)
-    if not matchDateAlpha: date = ""
-    else:
-        day = matchDateAlpha.group(DATEPATTERNALPHADAY)
-        month = MONTHS[matchDateAlpha.group(DATEPATTERNALPHAMONTH)]
-        year = matchDateAlpha.group(DATEPATTERNALPHAYEAR)
-        date = day+DATESEP+month
-        if not year: date += DATESEP+DEFAULTYEAR
-        else: date += DATESEP+"20"+year
+    try:
+        matchDateAlpha = re.search(DATEPATTERNALPHA,line)
+        if not matchDateAlpha: date = ""
+        else:
+            day = matchDateAlpha.group(DATEPATTERNALPHADAY)
+            month = MONTHS[matchDateAlpha.group(DATEPATTERNALPHAMONTH)]
+            year = matchDateAlpha.group(DATEPATTERNALPHAYEAR)
+            date = day+DATESEP+month
+            if not year: date += DATESEP+DEFAULTYEAR
+            else: date += DATESEP+"20"+year
+    except: date = ""
     return(date)
 
 def processFile(client,counselor,lines,options):
@@ -125,11 +127,12 @@ def processFile(client,counselor,lines,options):
         matchGreet = re.search(GREETPATTERN,line)
         matchDateNum = re.search(DATEPATTERNNUM,line)
         matchDateAlpha = re.search(DATEPATTERNALPHA,line)
-        if matchGreet and matchGreet.group(GREETPATTERNGREET) in GREETINGS:
+        if matchGreet and matchGreet.group(GREETPATTERNGREET).lower() in GREETINGS:
             if "g" in options and (receiver !="" or nbrOfProcessed > 0):
                 printMailText(client,counselor,date,mailText,receiver)
                 mailText = ""
                 receiver = ""
+                date = ""
                 nbrOfProcessed += 1
             if receiver == "": 
                 receiver = matchGreet.group(GREETPATTERNTARGET)
@@ -140,9 +143,12 @@ def processFile(client,counselor,lines,options):
                 printMailText(client,counselor,date,mailText,receiver)
                 mailText = ""
                 receiver = ""
+                date = ""
                 nbrOfProcessed += 1
-            if matchDateNum: date = getDateNum(line)
-            else: date = getDateAlpha(line)
+            if matchDateNum: newDate = getDateNum(line)
+            else: newDate = getDateAlpha(line)
+            if newDate != "": date = newDate
+            else: mailText += line
         else: mailText += line
     if mailText != "":
         printMailText(client,counselor,date,mailText,receiver)

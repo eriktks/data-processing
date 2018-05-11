@@ -30,10 +30,10 @@ SUBJECTPATTERN1 = r"^Subject:"
 SUBJECTPATTERN2 = r"^Onderwerp:"
 SUBJECTPATTERN3 = r"^ESubject:"
 
-def findDate(line):
+def findDate(line,inFileName):
     match = re.search(r"([0-9]+)-([0-9]+)-([0-9]+)(\s+([0-9]+):([0-9]+)(:([0-9]+))?)?",line)
     if not match: 
-        sys.exit(COMMAND+": error: no date on line: "+line)
+        sys.exit(COMMAND+": error: no date in file "+inFileName+" on line: "+line)
     else:
         day = match.group(1)
         if len(day) < 2: day = "0"+day
@@ -51,7 +51,7 @@ def findDate(line):
         if len(secs) < 2: mins = "0"+secs
         return(year+"-"+month+"-"+day+"T"+hour+":"+mins+":"+secs)
 
-def findReceiver(line):
+def findReceiver(line,inFileName):
     match = re.search(RECEIVERPATTERN1+r" *(.*)",line)
     if match: receiver = match.group(1)
     else:
@@ -63,9 +63,9 @@ def findReceiver(line):
             else: sys.exit(COMMAND+": error: no receiver on line: "+line)
     if re.match(r"^[0-9]+\b",receiver): return(COUNSELOR,CLIENT)
     elif re.match(r"^[A-Za-z]+\b",receiver): return(CLIENT,COUNSELOR)
-    else: sys.exit(COMMAND+": error: no receiver on line: "+line)
+    else: sys.exit(COMMAND+": error: no receiver in file "+inFileName+" on line: "+line)
 
-def findSender(line):
+def findSender(line,inFileName):
     match = re.search(SENDERPATTERN1+r" *(.*)",line)
     if match: sender = match.group(1)
     else:
@@ -77,9 +77,9 @@ def findSender(line):
             else: sys.exit(COMMAND+": error: no sender on line: "+line)
     if re.match(r"^[0-9]+\b",sender): return(CLIENT,COUNSELOR)
     elif re.match(r"^[A-Za-z]+\b",sender): return(COUNSELOR,CLIENT)
-    else: sys.exit(COMMAND+": error: no receiver on line: "+line)
+    else: sys.exit(COMMAND+": error: no sender in file "+inFileName+" on line: "+line)
 
-def findSubject(line):
+def findSubject(line,inFileName):
     match = re.search(SUBJECTPATTERN1+r" *(.*)",line)
     if match: subject = match.group(1)
     else:
@@ -88,7 +88,7 @@ def findSubject(line):
         else:
             match = re.search(SUBJECTPATTERN3+r" *(.*)",line)
             if match: subject = match.group(1)
-            else: sys.exit(COMMAND+": error: no subject on line: "+line)
+            else: sys.exit(COMMAND+": error: no subject in file "+inFileName+"on line: "+line)
     return(subject)
 
 def tokenizeText(text):
@@ -96,7 +96,7 @@ def tokenizeText(text):
     tokenizedText = " ".join(tokens)
     return(tokenizedText)
 
-def processMailHeader(mailText):
+def processMailHeader(mailText,inFileName):
     date, receiver, sender, subject = ("","","","")
     mailLines = mailText.split("\n")
     skipLines = 0
@@ -105,27 +105,27 @@ def processMailHeader(mailText):
            re.search(DATEPATTERN2,line) or \
            re.search(DATEPATTERN3,line) or \
            re.search(DATEPATTERN4,line): 
-            date = findDate(line)
+            date = findDate(line,inFileName)
         elif re.search(SENDERPATTERN1,line) or \
              re.search(SENDERPATTERN2,line) or \
              re.search(SENDERPATTERN3,line):
-            sender,receiver = findSender(line)
+            sender,receiver = findSender(line,inFileName)
         elif re.search(RECEIVERPATTERN1,line) or \
              re.search(RECEIVERPATTERN2,line) or \
              re.search(RECEIVERPATTERN3,line):
-            sender,receiver = findReceiver(line)
+            sender,receiver = findReceiver(line,inFileName)
         elif re.search(SUBJECTPATTERN1,line) or \
              re.search(SUBJECTPATTERN2,line) or \
              re.search(SUBJECTPATTERN3,line): 
-            subject = findSubject(line)
+            subject = findSubject(line,inFileName)
         else: 
             break
         skipLines += 1
     mailText = "\n".join(mailLines[skipLines:])
     return(date, mailText, receiver, sender, subject)
 
-def processMailText(thisId,mailText):
-    date, mailText, receiver, sender, subject = processMailHeader(mailText)
+def processMailText(thisId,mailText,inFileName):
+    date, mailText, receiver, sender, subject = processMailHeader(mailText,inFileName)
     return([thisId,sender,receiver,date,tokenizeText(subject),tokenizeText(mailText)])
 
 def nextMailStarts(line):
@@ -152,12 +152,12 @@ def getMailData(inFileName):
     for line in inFile:
         if nextMailStarts(line) and not nextMailStarts(lastLine) and \
            mailText != "":
-            mails.append(processMailText(thisId,mailText))
+            mails.append(processMailText(thisId,mailText,inFileName))
             mailText = ""
         mailText += line
         lastLine = line
     if mailText != "":
-        mails.append(processMailText(thisId,mailText))
+        mails.append(processMailText(thisId,mailText,inFileName))
     inFile.close()
     return(mails)
 
