@@ -16,6 +16,7 @@ FIELDT1 = "t1"
 FIELDID = "onderzoeksnummer1"
 MAXCESD = 20
 MAXMHC = 14
+NONE = "NONE"
 SEPARATOR = ","
 MHCVALUES = { "nooit":0,
               "een of twee keer":1,
@@ -29,32 +30,41 @@ CESDVALUES = { "0":0, "1":1, "2":2, "3":3,
                "soms of weinig (1-2 dagen)":1,
                "regelmatig (3-4 dagen)":2,
                "meestal of altijd (5-7 dagen)":3 }
+HEADING = "id,cesdToTalT0,cesdTotalT1,cesdDifference,mhcTotalT0,mhcTotalT1,mhcDifference"
 
+def getFieldTotal(row,prefix,suffix,convertor,maxIndex,addZero):
+    total = NONE
+    for i in range(1,maxIndex+1):
+        if addZero and i < 10: strI = "0"+str(i)
+        else: strI = str(i)
+        fieldName = prefix+strI+"_"+suffix
+        if not row[fieldName] == "NA":
+            if total != NONE: total += convertor[row[fieldName]]
+            else: total = convertor[row[fieldName]]
+    return(total)
+
+def doOutput(thisId,cesdTotalT0,cesdTotalT1,mhcTotalT0,mhcTotalT1):
+    outString = str(thisId)
+    outString += ","+str(cesdTotalT0)
+    outString += ","+str(cesdTotalT1)
+    if cesdTotalT0 == NONE or cesdTotalT1 == NONE: outString += ","+str(NONE)
+    else: outString += ","+str(cesdTotalT1-cesdTotalT0)
+    outString += ","+str(mhcTotalT0)
+    outString += ","+str(mhcTotalT1)
+    if mhcTotalT0 == NONE or mhcTotalT1 == NONE: outString += ","+str(NONE)
+    else: outString += ","+str(mhcTotalT1-mhcTotalT0)
+    print(outString)
+    return()
+    
 def main(argv):
     csvReader = csv.DictReader(sys.stdin,delimiter=SEPARATOR)
+    print(HEADING)
     for row in csvReader:
-        cesdTotalT0 = 0
-        cesdTotalT1 = 0
-        mhcTotalT0 = 0
-        mhcTotalT1 = 0
-        for i in range(1,MAXCESD+1):
-            strI = str(i)
-            fieldName0 = FIELDCESD+strI+"_"+FIELDT0
-            if not row[fieldName0] == "NA":
-                cesdTotalT0 += CESDVALUES[row[fieldName0]]
-            fieldName1 = FIELDCESD+strI+"_"+FIELDT1
-            if not row[fieldName1] == "NA":
-                cesdTotalT1 += CESDVALUES[row[fieldName1]]
-        for i in range(1,MAXMHC+1):
-            if i < 10: strI = "0"+str(i)
-            else: strI = str(i)
-            fieldName0 = FIELDMHC+strI+"_"+FIELDT0
-            if not row[fieldName0] == "NA":
-                mhcTotalT0 += MHCVALUES[row[fieldName0]]
-            fieldName1 = FIELDMHC+strI+"_"+FIELDT1
-            if not row[fieldName1] == "NA":
-                mhcTotalT1 += MHCVALUES[row[fieldName1]]
-        print(row[FIELDID]+","+str(cesdTotalT0)+","+str(cesdTotalT1)+","+str(mhcTotalT0)+","+str(mhcTotalT1))
+        cesdTotalT0 = getFieldTotal(row,FIELDCESD,FIELDT0,CESDVALUES,MAXCESD,False)
+        cesdTotalT1 = getFieldTotal(row,FIELDCESD,FIELDT1,CESDVALUES,MAXCESD,False)
+        mhcTotalT0 = getFieldTotal(row,FIELDMHC,FIELDT0,MHCVALUES,MAXMHC,True)
+        mhcTotalT1 = getFieldTotal(row,FIELDMHC,FIELDT1,MHCVALUES,MAXMHC,True)
+        doOutput(row[FIELDID],cesdTotalT0,cesdTotalT1,mhcTotalT0,mhcTotalT1)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
