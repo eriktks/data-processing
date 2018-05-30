@@ -14,11 +14,12 @@ import sys
 CLIENT = "CLIENT"
 COMMAND = sys.argv.pop(0)
 COUNSELOR = "COUNSELOR"
+COUNSELORID = 1
 DATEPATTERN1 = r"^Date:"
 DATEPATTERN2 = r"^Verzonden:"
 DATEPATTERN3 = r"^EDate:"
 DATEPATTERN4 = r"^Sent:"
-MAILHEADING = ["id","sender","receipient","date","subject","text"]
+MAILHEADING = ["client-id","counselor","sender","receipient","nbrOfWords","nbrOfCharsInWords","nbrOfSents","nbrOfTokensInSents","date","subject","text"]
 RECEIVERPATTERN1 = r"^Aan:"
 RECEIVERPATTERN2 = r"^To:"
 RECEIVERPATTERN3 = r"^ETo:"
@@ -29,6 +30,8 @@ SENDER = "SENDER"
 SUBJECTPATTERN1 = r"^Subject:"
 SUBJECTPATTERN2 = r"^Onderwerp:"
 SUBJECTPATTERN3 = r"^ESubject:"
+SENTSTART = "<s>"
+SENTEND = "</s>"
 
 def findDate(line,inFileName):
     match = re.search(r"([0-9]+)-([0-9]+)-([0-9]+)(\s+([0-9]+):([0-9]+)(:([0-9]+))?)?",line)
@@ -61,8 +64,10 @@ def findReceiver(line,inFileName):
             match = re.search(RECEIVERPATTERN3+r" *(.*)",line)
             if match: receiver = match.group(1)
             else: sys.exit(COMMAND+": error: no receiver on line: "+line)
-    if re.match(r"^[0-9]+\b",receiver): return(COUNSELOR,CLIENT)
-    elif re.match(r"^[A-Za-z]+\b",receiver): return(CLIENT,COUNSELOR)
+    matchNbr = re.match(r"^[0-9]+\b",receiver)
+    matchChr = re.match(r"^[A-Za-z]+\b",receiver)
+    if matchNbr: return(matchNbr.group(0),COUNSELOR,CLIENT)
+    elif matchChr: return(matchChr.group(0),CLIENT,COUNSELOR)
     else: sys.exit(COMMAND+": error: no receiver in file "+inFileName+" on line: "+line)
 
 def findSender(line,inFileName):
@@ -75,8 +80,10 @@ def findSender(line,inFileName):
             match = re.search(SENDERPATTERN3+r" *(.*)",line)
             if match: sender = match.group(1)
             else: sys.exit(COMMAND+": error: no sender on line: "+line)
-    if re.match(r"^[0-9]+\b",sender): return(CLIENT,COUNSELOR)
-    elif re.match(r"^[A-Za-z]+\b",sender): return(COUNSELOR,CLIENT)
+    matchNbr = re.match(r"^[0-9]+\b",sender)
+    matchChr = re.match(r"^[A-Za-z]+\b",sender)
+    if matchNbr: return(matchNbr.group(0),CLIENT,COUNSELOR)
+    elif matchChr: return(matchChr.group(0),COUNSELOR,CLIENT)
     else: sys.exit(COMMAND+": error: no sender in file "+inFileName+" on line: "+line)
 
 def findSubject(line,inFileName):
@@ -92,12 +99,18 @@ def findSubject(line,inFileName):
     return(subject)
 
 def tokenizeText(text):
-    tokens = nltk.word_tokenize(text)
+    sentences = nltk.sent_tokenize(text)
+    tokens = []
+    for s in sentences: 
+        t = nltk.word_tokenize(s)
+        tokens.append(SENTSTART)
+        tokens.extend(t)
+        tokens.append(SENTEND)
     tokenizedText = " ".join(tokens)
     return(tokenizedText)
 
 def processMailHeader(mailText,inFileName):
-    date, receiver, sender, subject = ("","","","")
+    date, receiver, receiverName, sender, senderName, subject = ("","","","","","")
     mailLines = mailText.split("\n")
     skipLines = 0
     for line in mailLines:
@@ -109,11 +122,11 @@ def processMailHeader(mailText,inFileName):
         elif re.search(SENDERPATTERN1,line) or \
              re.search(SENDERPATTERN2,line) or \
              re.search(SENDERPATTERN3,line):
-            sender,receiver = findSender(line,inFileName)
+            senderName,sender,receiver = findSender(line,inFileName)
         elif re.search(RECEIVERPATTERN1,line) or \
              re.search(RECEIVERPATTERN2,line) or \
              re.search(RECEIVERPATTERN3,line):
-            sender,receiver = findReceiver(line,inFileName)
+            receiverName,sender,receiver = findReceiver(line,inFileName)
         elif re.search(SUBJECTPATTERN1,line) or \
              re.search(SUBJECTPATTERN2,line) or \
              re.search(SUBJECTPATTERN3,line): 
@@ -121,12 +134,34 @@ def processMailHeader(mailText,inFileName):
         else: 
             break
         skipLines += 1
+    if senderName != "": counselor = senderName
     mailText = "\n".join(mailLines[skipLines:])
-    return(date, mailText, receiver, sender, subject)
+    if sender == CLIENT: 
+        return(date, mailText, receiver, sender, subject, receiverName)
+    elif receiver == CLIENT:
+        return(date, mailText, receiver, sender, subject, senderName)
+
+def analyzeText(text):
+    tokens = text.split()
+    nbrOfWords = 0
+    nbrOfCharsInWords = 0
+    nbrOfSents = 0
+    nbrOfTokensInSents = 0
+    for token in tokens:
+        if token == SENTSTART: 
+            nbrOfSents += 1 
+        elif token != SENTEND:
+            nbrOfTokensInSents += 1
+            if re.match(r"[a-zA-Z]",token):
+                nbrOfWords += 1
+                nbrOfCharsInWords += len(token)
+    return(nbrOfWords,nbrOfCharsInWords,nbrOfSents,nbrOfTokensInSents)
 
 def processMailText(thisId,mailText,inFileName):
-    date, mailText, receiver, sender, subject = processMailHeader(mailText,inFileName)
-    return([thisId,sender,receiver,date,tokenizeText(subject),tokenizeText(mailText)])
+    date, mailText, receiver, sender, subject, counselor = processMailHeader(mailText,inFileName)
+    tokenizedMailText = tokenizeText(mailText)
+    (nbrOfWords, nbrOfCharsInWords, nbrOfSents, nbrTokensInSents) = analyzeText(tokenizedMailText)
+    return([thisId,counselor,sender,receiver,nbrOfWords,nbrOfCharsInWords,nbrOfSents,nbrTokensInSents,date,tokenizeText(subject),tokenizedMailText])
 
 def nextMailStarts(line):
     return(re.search(DATEPATTERN1,line) or
@@ -142,6 +177,18 @@ def nextMailStarts(line):
            re.search(SUBJECTPATTERN1,line) or
            re.search(SUBJECTPATTERN2,line) or
            re.search(SUBJECTPATTERN3,line))
+
+def fixCounselor(mails):
+    counselor = ""
+    for mail in mails:
+        if mail[COUNSELORID] != "": 
+            counselor = mail[COUNSELORID]
+            break
+    for i in range(0,len(mails)):
+        if mails[i][COUNSELORID] == "": mails[i][COUNSELORID] = counselor
+        elif mails[i][COUNSELORID] != counselor:
+            print(COMMAND+": mismatching counselors: "+counselor+" "+mails[i][COUNSELORID])
+    return(mails)
 
 def getMailData(inFileName):
     mails = []
@@ -159,6 +206,7 @@ def getMailData(inFileName):
     if mailText != "":
         mails.append(processMailText(thisId,mailText,inFileName))
     inFile.close()
+    mails = fixCounselor(mails)
     return(mails)
 
 def show(array):
