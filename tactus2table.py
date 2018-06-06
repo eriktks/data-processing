@@ -2,6 +2,7 @@
 """
     tactus2table.py: convert xml files from tactus to csv tables
     usage: tactus2table.py file1 [file2 ...]
+    note: writes output to ../output/emails.csv
     20180412 erikt(at)xs4all.nl
 """
 
@@ -42,7 +43,7 @@ def cleanupText(text):
 
 def makeId(fileName):
     thisId = re.sub(r".*/","",fileName)
-    thisId = re.sub(r"\.xml$","",thisId)
+    thisId = re.sub(r"\.xml.*$","",thisId)
     return(thisId)
 
 def anonymizeCounselor(name):
