@@ -16,7 +16,7 @@ FIELDT1 = "t1"
 FIELDID = "onderzoeksnummer1"
 MAXCESD = 20
 MAXMHC = 14
-NONE = "NONE"
+NONE = "NA"
 SEPARATOR = ","
 MHCVALUES = { "nooit":0,
               "een of twee keer":1,
@@ -30,7 +30,7 @@ CESDVALUES = { "0":0, "1":1, "2":2, "3":3,
                "soms of weinig (1-2 dagen)":1,
                "regelmatig (3-4 dagen)":2,
                "meestal of altijd (5-7 dagen)":3 }
-HEADING = "id,cesdToTalT0,cesdTotalT1,cesdDifference,mhcTotalT0,mhcTotalT1,mhcDifference"
+HEADING = "id,time,cesd,mhc"
 
 def getFieldTotal(row,prefix,suffix,convertor,maxIndex,addZero):
     total = NONE
@@ -45,14 +45,14 @@ def getFieldTotal(row,prefix,suffix,convertor,maxIndex,addZero):
 
 def doOutput(thisId,cesdTotalT0,cesdTotalT1,mhcTotalT0,mhcTotalT1):
     outString = str(thisId)
+    outString += ","+str("T0")
     outString += ","+str(cesdTotalT0)
-    outString += ","+str(cesdTotalT1)
-    if cesdTotalT0 == NONE or cesdTotalT1 == NONE: outString += ","+str(NONE)
-    else: outString += ","+str(cesdTotalT1-cesdTotalT0)
     outString += ","+str(mhcTotalT0)
+    print(outString)
+    outString = str(thisId)
+    outString += ","+str("T1")
+    outString += ","+str(cesdTotalT1)
     outString += ","+str(mhcTotalT1)
-    if mhcTotalT0 == NONE or mhcTotalT1 == NONE: outString += ","+str(NONE)
-    else: outString += ","+str(mhcTotalT1-mhcTotalT0)
     print(outString)
     return()
     
