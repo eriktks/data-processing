@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -W all
+#!/usr/local/bin/python3.6.lamachine -W all
 # ner.py: perform named antity recognition with frog
 # usage: ner.py < text
 # note adapted from: https://www.tutorialspoint.com/python/python_networking.htm
@@ -12,12 +12,13 @@ import sys
 PORT = 8080
 MAXDATA = 1024
 NERID = 4
+POSID = 3
 TOKENID = 0
 
 def prettyPrint(data):
     for row in data:
-        if len(row) >= NERID+1 : 
-            lastLine = row[TOKENID]+" "+row[NERID]
+        if len(row) >= NERID+1 and row[0] != None:
+            lastLine = row[TOKENID]+" "+row[POSID]+" "+row[NERID]
             print(lastLine)
     print("")
     return()
