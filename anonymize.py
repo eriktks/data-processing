@@ -11,18 +11,28 @@ COMMAND = sys.argv.pop(0)
 NAMESDIR = "/home/erikt/projects/e-mental-health/usb/OVK/data/eriktks/names"
 POSITIVENAMEFILE = NAMESDIR+"/positiveNames.txt"
 NEGATIVENAMEFILE = NAMESDIR+"/negativeNames.txt"
-TAGNUM = "TW"
 NEOTHER = "O"
-SKIP = [ "EFrom","EDate","Verzonden","Van","Aan","From","To","Date" ]
+PER = "PER"
+STOP = "x"
+TAGNUM = "TW"
+NAMEWORDS = [ "van","de","der","vande","vander","Van","De","Vande","Vander" ]
+SKIP = [ "EFrom","EDate","Verzonden","Van","Aan","From","To","Date","Sent" ]
 MONTHS = [ "januari","februari","maart","april","mei","juni","juli", \
-           "augustus","september","oktober","november","december" ]
+           "augustus","september","oktober","november","december", \
+           "Januari","Februari","Maart","April","Mei","Juni","Juli", \
+           "Augustus","September","Oktober","November","December" ]
 WEEKDAYS = [ "zondag","maandag","dinsdag","woensdag","donderdag", \
-             "vrijdag","zaterdag" ]
+             "vrijdag","zaterdag", \
+             "Zondag","Maandag","Dinsdag","Woensdag","Donderdag", \
+             "Vrijdag","Zaterdag", \
+             "zondags","maandags","dinsdags","woensdags","donderdags", \
+             "vrijdags","zaterdags" ]
 
 def check(name,ner,nerFile):
     print(nerFile+"? ("+ner+") "+name+" ",end="")
     sys.stdout.flush()
     response = sys.stdin.readline().rstrip()
+    if response == STOP: sys.exit(COMMAND+": stopped")
     if response == "1": response = ner
     return(response)
 
@@ -44,6 +54,31 @@ def addPositive(name,myClass):
     outFile.close()
     return()
 
+def compressPER(tokens):
+    counter = 0
+    while counter < len(tokens):
+        if tokens[counter] != PER: counter += 1
+        else:
+            nextCounter = counter
+            allChecked = False
+            while not allChecked:
+                if nextCounter < len(tokens)-1 and \
+                   tokens[nextCounter+1] == PER:
+                    nextCounter += 1
+                elif nextCounter < len(tokens)-2 and \
+                   tokens[nextCounter+1] in NAMEWORDS and \
+                   tokens[nextCounter+2] == PER:
+                    nextCounter += 2
+                elif nextCounter < len(tokens)-2 and \
+                   tokens[nextCounter+1] in NAMEWORDS and \
+                   tokens[nextCounter+2] in NAMEWORDS and \
+                   tokens[nextCounter+3] == PER:
+                    nextCounter += 2
+                else: allChecked = True
+            tokens = tokens[:counter]+["PER"]+tokens[nextCounter+1:]
+            counter += 1
+    return(tokens)
+
 def anonymize(tokens,pos,ner,nerFile):
     global positiveNames,negativeNames
 
@@ -52,14 +87,17 @@ def anonymize(tokens,pos,ner,nerFile):
     for i in range(0,len(tokens)):
         if tokens[i] in positiveNames.keys():
             tokens[i] = positiveNames[tokens[i]]
-        elif pos[i] == TAGNUM: 
+        elif pos[i] == TAGNUM or re.search(r"^\d+$",tokens[i]): 
             tokens[i] = "NUM"
-        elif re.search(r"@",tokens[i]):
-            tokens[i] = "MAIL"
         elif tokens[i] in MONTHS:
             tokens[i] = "MONTH"
         elif tokens[i] in WEEKDAYS:
             tokens[i] = "DAY"
+        elif re.search(r"@",tokens[i]):
+            tokens[i] = "MAIL"
+        elif re.search(r"^www\.",tokens[i],re.IGNORECASE) or \
+             re.search(r"\.nl$",tokens[i],re.IGNORECASE):
+            tokens[i] = "ORG"
         elif (ner[i] != NEOTHER or pos[i] == "SPEC") and \
             not tokens[i] in negativeNames.keys():
             checkOutput = check(tokens[i],ner[i],nerFile)
@@ -69,6 +107,7 @@ def anonymize(tokens,pos,ner,nerFile):
                 tokens[i] = checkOutput
         tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
         tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
+    tokens = compressPER(tokens)
     line = " ".join(tokens)
     return(line)
 
