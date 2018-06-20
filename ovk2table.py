@@ -15,23 +15,26 @@ CLIENT = "CLIENT"
 COMMAND = sys.argv.pop(0)
 COUNSELOR = "COUNSELOR"
 COUNSELORID = 1
-DATEPATTERN1 = r"^Date:"
-DATEPATTERN2 = r"^Verzonden:"
-DATEPATTERN3 = r"^EDate:"
-DATEPATTERN4 = r"^Sent:"
+DATEPATTERN1 = r"^Date :"
+DATEPATTERN2 = r"^Verzonden :"
+DATEPATTERN3 = r"^EDate :"
+DATEPATTERN4 = r"^Sent :"
 MAILHEADING = ["client-id","counselor","sender","receipient","nbrOfWords","nbrOfCharsInWords","nbrOfSents","nbrOfTokensInSents","date","subject","text"]
-RECEIVERPATTERN1 = r"^Aan:"
-RECEIVERPATTERN2 = r"^To:"
-RECEIVERPATTERN3 = r"^ETo:"
-SENDERPATTERN1 = r"^Van:"
-SENDERPATTERN2 = r"^From:"
-SENDERPATTERN3 = r"^EFrom:"
+RECEIVERPATTERN1 = r"^Aan :"
+RECEIVERPATTERN2 = r"^To :"
+RECEIVERPATTERN3 = r"^ETo :"
+REVERSEDFILE = "reversed.txt"
+SENDERPATTERN1 = r"^Van :"
+SENDERPATTERN2 = r"^From :"
+SENDERPATTERN3 = r"^EFrom :"
 SENDER = "SENDER"
-SUBJECTPATTERN1 = r"^Subject:"
-SUBJECTPATTERN2 = r"^Onderwerp:"
-SUBJECTPATTERN3 = r"^ESubject:"
+SUBJECTPATTERN1 = r"^Subject :"
+SUBJECTPATTERN2 = r"^Onderwerp :"
+SUBJECTPATTERN3 = r"^ESubject :"
 SENTSTART = "<s>"
 SENTEND = "</s>"
+
+reversedList = []
 
 def findDate(line,inFileName):
     match = re.search(r"([0-9]+)-([0-9]+)-([0-9]+)(\s+([0-9]+):([0-9]+)(:([0-9]+))?)?",line)
@@ -190,6 +193,13 @@ def fixCounselor(mails):
             print(COMMAND+": mismatching counselors: "+counselor+" "+mails[i][COUNSELORID])
     return(mails)
 
+def checkOrder(mails,inFileName):
+    global reversedList
+
+    thisId = re.sub(r"\..*$","",inFileName)
+    if not thisId in reversedList: return(mails)
+    else: return(reversed(mails))
+
 def getMailData(inFileName):
     mails = []
     mailText = ""
@@ -207,6 +217,7 @@ def getMailData(inFileName):
         mails.append(processMailText(thisId,mailText,inFileName))
     inFile.close()
     mails = fixCounselor(mails)
+    mails = checkOrder(mails,inFileName)
     return(mails)
 
 def show(array):
@@ -215,8 +226,24 @@ def show(array):
     for row in array: csvwriter.writerow(row)
     return()
 
+def readReversed():
+    reversedList = []
+    try:
+        inFile = open(REVERSEDFILE,"r")
+        for line in inFile:
+            line = line.rstrip()
+            reversedList.append(line)
+        inFile.close()
+        return(reversedList)
+    except:
+        sys.warn(COMMAND+": warning: cannot read file "+REVERSEDFILE)
+        return([])
+
 def main(argv):
+    global reversedList
+
     emails = []
+    reversedList = readReversed()
     for inFileName in sys.argv:
         emails.extend(getMailData(inFileName))
     if len(emails) > 0: show(emails)
