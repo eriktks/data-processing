@@ -87,7 +87,7 @@ def anonymize(tokens,pos,ner,nerFile):
     for i in range(0,len(tokens)):
         if tokens[i] in positiveNames.keys():
             tokens[i] = positiveNames[tokens[i]]
-        elif pos[i] == TAGNUM or re.search(r"^\d+$",tokens[i]): 
+        elif pos[i] == TAGNUM or re.search(r"^\d",tokens[i]): 
             tokens[i] = "NUM"
         elif tokens[i] in MONTHS:
             tokens[i] = "MONTH"
