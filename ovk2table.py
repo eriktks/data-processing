@@ -196,7 +196,7 @@ def fixCounselor(mails):
 def checkOrder(mails,inFileName):
     global reversedList
 
-    thisId = re.sub(r"\..*$","",inFileName)
+    thisId = re.sub(r"^(.*/)?(....)(.*)$",r"\2",inFileName)
     if not thisId in reversedList: return(mails)
     else: return(reversed(mails))
 
