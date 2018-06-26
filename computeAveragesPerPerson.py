@@ -9,8 +9,6 @@ import sys
 
 CLIENT = "CLIENT"
 COMMAND = sys.argv.pop(0)
-REVERSEDASFILE = "/home/erikt/projects/e-mental-health/usb/OVK/data/eriktks/AS/text/reversed.txt"
-REVERSEDESFILE = "/home/erikt/projects/e-mental-health/usb/OVK/data/eriktks/ES/text/reversed.txt"
 END = "END"
 FIELDCLIENTID = "client-id"
 FIELDCOUNSELORID = "counselor"
@@ -52,28 +50,15 @@ def summarizeDataEnd(countedElements,countedGroups):
     if nbrOfGroups <= 0: return(NONE)
     else: return(round(nbrOfElements/nbrOfGroups,1))
 
-def readReversedOrder():
-    reversedOrder = []
-    for reversedFile in (REVERSEDASFILE,REVERSEDESFILE):
-        inFile = open(reversedFile,"r")
-        for line in inFile:
-            line = line.rstrip()
-            reversedOrder.append(line)
-        inFile.close()
-    return(reversedOrder)
-
 def printData(data):
-    reversedOrder = readReversedOrder()
     for person in sorted(data.keys()):
         outLine = person
-        if person in reversedOrder: outLine += ",T1"
-        else: outLine += ",T0"
+        outLine += ",T0"
         outLine += ","+str(summarizeDataStart(data[person][FIELDNBROFTOKENSINSENTS],data[person][FIELDNBROFSENTS]))
         outLine += ","+str(summarizeDataStart(data[person][FIELDNBROFCHARSINWORDS],data[person][FIELDNBROFWORDS]))
         print(outLine)
         outLine = person
-        if person in reversedOrder: outLine += ",T0"
-        else: outLine += ",T1"
+        outLine += ",T1"
         outLine += ","+str(summarizeDataEnd(data[person][FIELDNBROFTOKENSINSENTS],data[person][FIELDNBROFSENTS]))
         outLine += ","+str(summarizeDataEnd(data[person][FIELDNBROFCHARSINWORDS],data[person][FIELDNBROFWORDS]))
         print(outLine)
