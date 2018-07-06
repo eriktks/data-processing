@@ -8,13 +8,17 @@
 
 import csv
 import nltk
+import random
 import re
 import sys
 
 CLIENT = "CLIENT"
 COMMAND = sys.argv.pop(0)
 COUNSELOR = "COUNSELOR"
+COUNSELORTAG = "C"
 COUNSELORID = 1
+COUNSELORIDMAX = 100
+COUNSELORIDMIN = 10
 DATEPATTERN1 = r"^Date :"
 DATEPATTERN2 = r"^Verzonden :"
 DATEPATTERN3 = r"^EDate :"
@@ -34,6 +38,7 @@ SUBJECTPATTERN3 = r"^ESubject :"
 SENTSTART = "<s>"
 SENTEND = "</s>"
 
+counselorIds = {}
 reversedList = []
 
 def findDate(line,inFileName):
@@ -57,6 +62,19 @@ def findDate(line,inFileName):
         if len(secs) < 2: mins = "0"+secs
         return(year+"-"+month+"-"+day+"T"+hour+":"+mins+":"+secs)
 
+def anonymizeCounselor(name):
+    global counselorIds;
+
+    if not name in counselorIds.keys(): 
+        thisId = random.randrange(COUNSELORIDMIN,COUNSELORIDMAX)
+        counter = 0
+        while thisId in counselorIds.values() and counter < COUNSELORIDMAX*2:
+           thisId = random.randrange(COUNSELORIDMIN,COUNSELORIDMAX)
+        if counter >= COUNSELORIDMAX*2:
+            sys.exit(COMMAND+": cannot generate counselor id: to many counselors?")
+        counselorIds[name] = thisId
+    return(COUNSELORTAG+str(counselorIds[name]))
+
 def findReceiver(line,inFileName):
     match = re.search(RECEIVERPATTERN1+r" *(.*)",line)
     if match: receiver = match.group(1)
@@ -70,7 +88,7 @@ def findReceiver(line,inFileName):
     matchNbr = re.match(r"^[0-9]+\b",receiver)
     matchChr = re.match(r"^[A-Za-z]+\b",receiver)
     if matchNbr: return(matchNbr.group(0),COUNSELOR,CLIENT)
-    elif matchChr: return(matchChr.group(0),CLIENT,COUNSELOR)
+    elif matchChr: return(anonymizeCounselor(matchChr.group(0)),CLIENT,COUNSELOR)
     else: sys.exit(COMMAND+": error: no receiver in file "+inFileName+" on line: "+line)
 
 def findSender(line,inFileName):
@@ -86,7 +104,7 @@ def findSender(line,inFileName):
     matchNbr = re.match(r"^[0-9]+\b",sender)
     matchChr = re.match(r"^[A-Za-z]+\b",sender)
     if matchNbr: return(matchNbr.group(0),CLIENT,COUNSELOR)
-    elif matchChr: return(matchChr.group(0),COUNSELOR,CLIENT)
+    elif matchChr: return(anonymizeCounselor(matchChr.group(0)),COUNSELOR,CLIENT)
     else: sys.exit(COMMAND+": error: no sender in file "+inFileName+" on line: "+line)
 
 def findSubject(line,inFileName):
@@ -234,10 +252,9 @@ def readReversed():
             line = line.rstrip()
             reversedList.append(line)
         inFile.close()
-        return(reversedList)
     except:
-        sys.warn(COMMAND+": warning: cannot read file "+REVERSEDFILE)
-        return([])
+        print(COMMAND+": warning: cannot read file "+REVERSEDFILE,file=sys.stderr)
+    return(reversedList)
 
 def main(argv):
     global reversedList
