@@ -1,9 +1,10 @@
 #!/usr/bin/python3 -W all
 # anonymize.py: remove personal information from any text file
-# usage: anonymize.py [nerFile1 [nerFile2 ...]]
+# usage: anonymize.py [-i] < nerfile
 # note: might miss words with punctuation attached to them
 # 20180604 erikt(at)xs4all.nl
 
+import getopt
 import re
 import sys
 
@@ -16,7 +17,7 @@ PER = "PER"
 STOP = "x"
 TAGNUM = "TW"
 NAMEWORDS = [ "van","de","der","vande","vander","Van","De","Vande","Vander" ]
-SKIP = [ "EFrom","EDate","Verzonden","Van","Aan","From","To","Date","Sent" ]
+SKIP = [ "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" ]
 MONTHS = [ "januari","februari","maart","april","mei","juni","juli", \
            "augustus","september","oktober","november","december", \
            "Januari","Februari","Maart","April","Mei","Juni","Juli", \
@@ -28,8 +29,8 @@ WEEKDAYS = [ "zondag","maandag","dinsdag","woensdag","donderdag", \
              "zondags","maandags","dinsdags","woensdags","donderdags", \
              "vrijdags","zaterdags" ]
 
-def check(name,ner,nerFile):
-    print(nerFile+"? ("+ner+") "+name+" ",end="")
+def check(name,ner):
+    print("? ("+ner+") "+name+" ",end="")
     sys.stdout.flush()
     response = sys.stdin.readline().rstrip()
     if response == STOP: sys.exit(COMMAND+": stopped")
@@ -79,7 +80,7 @@ def compressPER(tokens):
             counter += 1
     return(tokens)
 
-def anonymize(tokens,pos,ner,nerFile):
+def anonymize(tokens,pos,ner,interactive):
     global positiveNames,negativeNames
 
     if len(tokens) > 1 and tokens[0] in SKIP and tokens[1] == ":":
@@ -100,11 +101,16 @@ def anonymize(tokens,pos,ner,nerFile):
             tokens[i] = "ORG"
         elif (ner[i] != NEOTHER or pos[i] == "SPEC") and \
             not tokens[i] in negativeNames.keys():
-            checkOutput = check(tokens[i],ner[i],nerFile)
-            if not checkOutput: addNegative(tokens[i])
+            if interactive:
+                checkOutput = check(tokens[i],ner[i])
+                if not checkOutput: addNegative(tokens[i])
+                else:
+                    addPositive(tokens[i],checkOutput)
+                    tokens[i] = checkOutput
             else:
-                addPositive(tokens[i],checkOutput)
+                addPositive(tokens[i],ner[i])
                 tokens[i] = checkOutput
+
         tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
         tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
     tokens = compressPER(tokens)
@@ -137,28 +143,27 @@ positiveNames = readPositiveNames()
 negativeNames = readNegativeNames()
 
 def main(argv):
-    for nerFile in argv:
-        tokens,pos,ner = ([],[],[])
-        try: inFile = open(nerFile,"r")
-        except: sys.exit(COMMAND+": cannot read file "+nerFile)
-        outFile = open(nerFile+".out","w")
-        for line in inFile:
-            try:
-                line = line.rstrip()
-                token,tag,ne = line.split()
-                tag = re.sub(r"\(.*$","",tag)
-                ne = re.sub(r"\(.*$","",ne)
-                ne = re.sub(r"^.-","",ne)
-                tokens.append(token)
-                pos.append(tag)
-                ner.append(ne)
-            except: 
-                if line != "": sys.exit(COMMAND+": unexpected line: "+line)
-                elif len(tokens) > 0: 
-                    print(anonymize(tokens,pos,ner,nerFile),file=outFile)
-                    tokens,pos,ner = ([],[],[])
-        outFile.close()
-        inFile.close()
+    try: optionList, files = getopt.getopt(argv,"i",[])
+    except: sys.exit("usage: "+COMMAND+" [-i] < nerfile ")
+    interactive = "i" in optionList
+    ner,pos,tokens = [[],[],[]]
+    for line in sys.stdin:
+        try:
+            line = line.rstrip()
+            token,tag,ne = line.split()
+            tag = re.sub(r"\(.*$","",tag)
+            ne = re.sub(r"\(.*$","",ne)
+            ne = re.sub(r"^.-","",ne)
+            tokens.append(token)
+            pos.append(tag)
+            ner.append(ne)
+        except: 
+            if line != "": sys.exit(COMMAND+": unexpected line: "+line)
+            elif len(tokens) > 0: 
+                 print(anonymize(tokens,pos,ner,interactive))
+                 tokens,pos,ner = ([],[],[])
+    if len(tokens) > 0: 
+         print(anonymize(tokens,pos,ner,interactive))
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
