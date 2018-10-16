@@ -6,10 +6,15 @@
 """
 
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import parse
 
 COMMAND = sys.argv.pop(0)
+BINDIR = "/home/erikt/projects/e-mental-health/data-processing"
+TARGETTAGS = ["Body","Notes"]
+CLEANTAGS = ["Username","FirstName","LastName","Email","Sender","Recipients"]
 
 def makeId(fileName):
     thisId = re.sub(r".*/","",fileName)
@@ -21,9 +26,24 @@ def main(argv):
         tree = ET.parse(inFileName)
         root = tree.getroot()
         thisId = makeId(inFileName)
-        for tag in root.findall(".//FirstName"):
-            tag.text = re.sub(r"\b([A-Z])\S*",r"\1",tag.text)
-            print(tag.text)
+        for targetTag in CLEANTAGS:
+            for tag in root.findall(".//"+targetTag):
+                    tag.text = "REMOVED"
+        for targetTag in TARGETTAGS:
+            for tag in root.findall(".//"+targetTag):
+                if tag.text != None:
+                    textTree = ET.fromstring("<container>"+tag.text+"</container>")
+                    if textTree.text != None: text = textTree.text
+                    else: text = ""
+                    for node in textTree.findall(".//"):
+                        if node.text != None: text += " "+node.text
+                    tmpFile = open("tmpFile","w")
+                    print(text,file=tmpFile)
+                    tmpFile.close()
+                    anonymizeProcess = subprocess.run([BINDIR+"/anonymize-eng.sh","tmpFile"],stdout=subprocess.PIPE)
+                    anonymizedText = dict(anonymizeProcess.__dict__)["stdout"]
+                    tag.text = anonymizedText.decode("utf8")
+        tree.write(inFileName+".an")
     return(0)
 
 if __name__ == "__main__":
