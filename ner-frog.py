@@ -42,6 +42,7 @@ def prettyPrint(data):
         if tokenInfoIsComplete(row): printTokenInfo(row)
         elif tokenInfoIsIncomplete(row): error("incomplete token: "+str(row))
         else: printEndOfSentence()
+    printEndOfSentence()
 
 def connectToFrog():
     try: frogClient = FrogClient(HOST,PORT,returnall=True)
@@ -53,16 +54,11 @@ def processWithFrog(frogClient,text):
     except Exception as e: error(NOFROGOUTPUTMSG+" "+str(e))
     return(frogOutput)
 
-def readTextFromStdin():
-    text = ""
-    for line in sys.stdin: text += " "+line.strip()
-    return(text)
-
 def main(argv):
     frogClient = connectToFrog()
-    text = readTextFromStdin()
-    frogOutput = processWithFrog(frogClient,text)
-    prettyPrint(frogOutput)
+    for line in sys.stdin:
+        frogOutput = processWithFrog(frogClient,line)
+        prettyPrint(frogOutput)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))

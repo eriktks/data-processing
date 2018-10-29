@@ -4,7 +4,8 @@
     usage: ner-nltk.py < file
     notes:
     * adapted from: https://www.tutorialspoint.com/python/python_networking.htm
-    * output lines with format: token SPACE postag SPACE nertag
+    * expects as input one paragraph per line
+    * outputs lines with format: token SPACE postag SPACE nertag
     * outputs empty line between sentences
     * only available for English; other languages require retraining ner AND pos
     20181016 erikt(at)xs4all.nl
@@ -27,22 +28,16 @@ def printTree(tree,parentNELabel):
 def splitInSentences(text):
     return(nltk.sent_tokenize(text))
 
-def readTextFromStdin():
-    text = ""
-    for line in sys.stdin:
-        text += " "+line.strip()
-    return(text)
-
 def processWithNltk(sentence):
     return(nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(sentence))))
 
 def main(argv):
-    text = readTextFromStdin()
-    sentences = splitInSentences(text)
-    for sentence in sentences:
-        nltkOutput = processWithNltk(sentence)
-        printTree(nltkOutput,OUTSIDENELABEL)
-        print()
+    for line in sys.stdin:
+        sentences = splitInSentences(line)
+        for sentence in sentences:
+            nltkOutput = processWithNltk(sentence)
+            printTree(nltkOutput,OUTSIDENELABEL)
+            print()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
