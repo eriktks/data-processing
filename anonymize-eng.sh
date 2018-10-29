@@ -5,7 +5,6 @@
 
 BINDIR="/home/erikt/projects/e-mental-health/data-processing"
 INFILE=$1
-INTERACTIVE=""
 
 source activate env
 python3 $BINDIR/ner-eng.py < $INFILE |\
