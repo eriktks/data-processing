@@ -16,7 +16,8 @@ import sys
 COMMAND = sys.argv.pop(0)
 HOST = "localhost"
 PORT = 8080
-MAXDATA = 1024
+NOFROGCONTACTMSG = "no Frog found on port "+str(PORT)+"! is it running?"
+NOFROGOUTPUTMSG = "no data received from Frog! is it running?"
 NERID = 4
 POSID = 3
 TOKENID = 0
@@ -25,10 +26,10 @@ def error(string):
     sys.exit(COMMAND+": error: "+string)
 
 def tokenInfoIsComplete(row):
-    return(row[0] != None and len(row) >= NERID+1)
+    return(row[TOKENID] != None and len(row) >= NERID+1)
 
 def tokenInfoIsIncomplete(row):
-    return(not tokenInfoIsComplete(row) and len(row) > 0 and row[0] != None)
+    return(not tokenInfoIsComplete(row) and len(row) > 0 and row[TOKENID] != None)
 
 def printTokenInfo(row):
     print(row[TOKENID],row[POSID],row[NERID])
@@ -43,21 +44,24 @@ def prettyPrint(data):
         else: printEndOfSentence()
 
 def connectToFrog():
-    return(FrogClient(HOST,PORT,returnall=True))
+    try: frogClient = FrogClient(HOST,PORT,returnall=True)
+    except Exception as e: error(NOFROGCONTACTMSG+" "+str(e))
+    return(frogClient)
+
+def processWithFrog(frogClient,text):
+    try: frogOutput = frogClient.process(text)
+    except Exception as e: error(NOFROGOUTPUTMSG+" "+str(e))
+    return(frogOutput)
 
 def readTextFromStdin():
     text = ""
-    for line in sys.stdin: 
-        text += " "+line.strip()
+    for line in sys.stdin: text += " "+line.strip()
     return(text)
 
-def processWithFrog(frogclient,text):
-    return(frogclient.process(text))
-
 def main(argv):
-    frogclient = connectToFrog()
+    frogClient = connectToFrog()
     text = readTextFromStdin()
-    frogOutput = processWithFrog(frogclient,text)
+    frogOutput = processWithFrog(frogClient,text)
     prettyPrint(frogOutput)
 
 if __name__ == "__main__":
