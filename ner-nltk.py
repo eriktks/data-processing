@@ -6,6 +6,7 @@
     * adapted from: https://www.tutorialspoint.com/python/python_networking.htm
     * output lines with format: token SPACE postag SPACE nertag
     * outputs empty line between sentences
+    * only available for English; other languages require retraining ner AND pos
     20181016 erikt(at)xs4all.nl
 """
 
@@ -45,4 +46,3 @@ def main(argv):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
