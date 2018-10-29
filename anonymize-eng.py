@@ -1,26 +1,29 @@
 #!/usr/bin/python3 -W all
 # anonymize-eng.py: remove personal information from English text file
-# usage: anonymize-eng.py [-i] < file.ner
-# note: might miss words with punctuation attached to them
+# usage: anonymize-eng.py < file.ner
+# note: expects line input in ner format: word SPACE pos SPACE ner-tag
 # 20181016 erikt(at)xs4all.nl
 
-import getopt
+import random
 import re
 import sys
 
 COMMAND = sys.argv.pop(0)
-# NAMESDIR = "/home/erikt/projects/e-mental-health/usb/OVK/data/eriktks/names"
-NAMESDIR = "/home/erikt/projects/e-mental-health/usb"
-POSITIVENAMEFILE = NAMESDIR+"/positiveNamesEng.txt"
-NEGATIVENAMEFILE = NAMESDIR+"/negativeNamesEng.txt"
+NAMESDIR = "/home/erikt/projects/e-mental-health/usb/tmp"
+NAMEFILE = NAMESDIR+"/names-eng.txt"
 NEOTHER = "O"
 PER = "PERSON"
 LOC = "LOCATION"
 ORG = "ORGANIZATION"
-STOP = "x"
-TAGNUM = "TW"
-NAMEWORDS = [ ]
-SKIP = [ ]
+NUM = "NUM"
+DAY = "DAY"
+DATE = "DATE"
+MONTH = "MONTH"
+MAIL = "MAIL"
+NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL}
+DATETAGS = {NUM,DAY,DATE,MONTH}
+TAGNUM = "CD"
+DOMAINS = "(com|net|nl|org)"
 MONTHS = [ "january","february","march","april","may","june","july", \
            "august","september","october","november","december", \
            "January","February","March","April","May","June","July", \
@@ -33,142 +36,111 @@ WEEKDAYS = [ "sunday","monday","tuesday","wednesday","thursday", \
              "Fridays","Saturdays",
              "Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun" ]
 
-def check(name,ner):
-    print("? ("+ner+") "+name+" ",end="")
-    sys.stdout.flush()
-    response = sys.stdin.readline().rstrip()
-    if response == STOP: sys.exit(COMMAND+": stopped")
-    if response == "1": response = ner
-    return(response)
+def addName(name,myClass):
+    global names
+    global newNames
 
-def addNegative(name):
-    global negativeNames
-
-    negativeNames[name] = False
-    outFile = open(NEGATIVENAMEFILE,"a")
-    print(name,file=outFile)
-    outFile.close()
+    names[name] = myClass
+    newNames[name] = myClass
     return()
 
-def addPositive(name,myClass):
-    global positiveNames
+def storeNewNames():
+    global newNames
 
-    positiveNames[name] = myClass
-    outFile = open(POSITIVENAMEFILE,"a")
-    print(name+" "+myClass,file=outFile)
-    outFile.close()
+    if len(newNames) > 0:
+        outFile = open(NAMEFILE,"a")
+        keys = list(newNames.keys())
+        random.shuffle(keys)
+        for key in keys:
+            print(key,newNames[key],file=outFile)
+        outFile.close()
     return()
 
-def compressPER(tokens):
-    counter = 0
-    while counter < len(tokens):
-        if tokens[counter] != PER: counter += 1
-        else:
-            nextCounter = counter
-            allChecked = False
-            while not allChecked:
-                if nextCounter < len(tokens)-1 and \
-                   tokens[nextCounter+1] == PER:
-                    nextCounter += 1
-                elif nextCounter < len(tokens)-2 and \
-                   tokens[nextCounter+1] in NAMEWORDS and \
-                   tokens[nextCounter+2] == PER:
-                    nextCounter += 2
-                elif nextCounter < len(tokens)-2 and \
-                   tokens[nextCounter+1] in NAMEWORDS and \
-                   tokens[nextCounter+2] in NAMEWORDS and \
-                   tokens[nextCounter+3] == PER:
-                    nextCounter += 2
-                else: allChecked = True
-            tokens = tokens[:counter]+[PER]+tokens[nextCounter+1:]
-            counter += 1
+def compressNE(tokens):
+    i = 0
+    while i < len(tokens):
+        if tokens[i] in NETAGS:
+            while i < len(tokens)-1 and tokens[i+1] == tokens[i]: 
+                tokens = tokens[:i]+tokens[i+1:]
+            if tokens[i] in DATETAGS:
+                while i < len(tokens) and tokens[i+1] in DATETAGS:
+                    tokens = tokens[:i-1]+[DATE]+tokens[i+2:]
+        i += 1
     return(tokens)
 
-def anonymize(tokens,pos,ner,interactive):
-    global positiveNames,negativeNames
+def anonymize(tokens,pos,ner):
+    global names
 
-    if len(tokens) > 1 and tokens[0] in SKIP and tokens[1] == ":":
-        return(" ".join(tokens))
     for i in range(0,len(tokens)):
-        if tokens[i] in positiveNames.keys():
-            if positiveNames[tokens[i]] != NEOTHER:
-                tokens[i] = positiveNames[tokens[i]]
+        if tokens[i] in names.keys():
+            if names[tokens[i]] != NEOTHER: 
+                tokens[i] = names[tokens[i]]
         elif pos[i] == TAGNUM or re.search(r"^\d",tokens[i]): 
-            tokens[i] = "NUM"
+            tokens[i] = NUM
         elif tokens[i] in MONTHS:
-            tokens[i] = "MONTH"
+            tokens[i] = MONTH
         elif tokens[i] in WEEKDAYS:
-            tokens[i] = "DAY"
+            tokens[i] = DAY
         elif re.search(r"@",tokens[i]):
-            tokens[i] = "MAIL"
+            tokens[i] = MAIL
         elif re.search(r"^www\.",tokens[i],re.IGNORECASE) or \
-             re.search(r"\.nl$",tokens[i],re.IGNORECASE):
+             re.search(r"\."+DOMAINS+"$",tokens[i],re.IGNORECASE):
             tokens[i] = ORG
-        elif (ner[i] != NEOTHER or pos[i] == "SPEC") and \
-            not tokens[i] in negativeNames.keys():
-            if interactive:
-                checkOutput = check(tokens[i],ner[i])
-                if not checkOutput: addNegative(tokens[i])
-                else:
-                    addPositive(tokens[i],checkOutput)
-                    tokens[i] = checkOutput
-            else:
-                addPositive(tokens[i],ner[i])
-                if ner[i] != NEOTHER: tokens[i] = ner[i]
-
+        elif ner[i] != NEOTHER:
+            addName(tokens[i],ner[i])
+            tokens[i] = ner[i]
         tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
         tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
-    tokens = compressPER(tokens)
+    tokens = compressNE(tokens)
     line = " ".join(tokens)
     return(line)
 
-def readPositiveNames():
-    data = {}
-    inFile = open(POSITIVENAMEFILE,"r")
-    for line in inFile:
-        line = line.rstrip()
-        try: token,ner = line.split()
-        except: sys.exit(COMMAND+": unexpected line in positive file: "+line)
-        data[token] = ner
-    inFile.close()
-    return(data)
+def readKnownNames():
+    names = {}
+    try: 
+        inFile = open(NAMEFILE,"r")
+        for line in inFile:
+            line = line.rstrip()
+            try: token,ner = line.split()
+            except: sys.exit(COMMAND+": unexpected line in name file: "+line)
+            names[token] = ner
+        inFile.close()
+    except: pass
+    return(names,{})
 
-def readNegativeNames():
-    data = {}
-    inFile = open(NEGATIVENAMEFILE,"r")
-    for line in inFile:
-        line = line.rstrip()
-        try: [token] = line.split()
-        except: sys.exit(COMMAND+": unexpected line in negative file: "+line)
-        data[token] = False
-    inFile.close()
-    return(data)
+def posTag2base(posTag):
+    return(re.sub(r"\(.*$","",posTag))
 
-positiveNames = readPositiveNames()
-negativeNames = readNegativeNames()
+def neTag2base(neTag):
+    return(re.sub(r"^.-","",neTag))
 
-def main(argv):
-    try: optionList, files = getopt.getopt(argv,"i",[])
-    except: sys.exit("usage: "+COMMAND+" [-i] < nerfile ")
-    interactive = "-i" in dict(optionList).keys()
-    ner,pos,tokens = [[],[],[]]
+def readSentence():
+    tokens,pos,ner = [[],[],[]]
     for line in sys.stdin:
         try:
             line = line.rstrip()
-            token,tag,ne = line.split()
-            tag = re.sub(r"\(.*$","",tag)
-            ne = re.sub(r"\(.*$","",ne)
-            ne = re.sub(r"^.-","",ne)
+            token,posTag,neTag = line.split()
+            posTag = posTag2base(posTag)
+            neTag = neTag2base(neTag)
             tokens.append(token)
-            pos.append(tag)
-            ner.append(ne)
-        except: 
-            if line != "": sys.exit(COMMAND+": unexpected line: "+line)
-            elif len(tokens) > 0: 
-                 print(anonymize(tokens,pos,ner,interactive))
-                 tokens,pos,ner = ([],[],[])
-    if len(tokens) > 0: 
-         print(anonymize(tokens,pos,ner,interactive))
+            pos.append(posTag)
+            ner.append(neTag)
+        except Exception as e: 
+            if line != "": 
+                sys.exit(COMMAND+": unexpected line: "+line+" "+str(e))
+            if len(tokens) > 0: 
+                return(tokens,pos,ner)
+    return(tokens,pos,ner)
+
+def main(argv):
+    global names,newNames
+
+    names,newNames = readKnownNames()
+    tokens,pos,ner = readSentence()
+    while len(tokens) > 0:
+        print(anonymize(tokens,pos,ner))
+        tokens,pos,ner = readSentence()
+    storeNewNames()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
