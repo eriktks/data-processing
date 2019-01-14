@@ -23,6 +23,7 @@ TOKEN = 0
 ITOKEN = { False:"ik", True:"Ik" }
 METOKEN = { False:"mij", True:"Mij" }
 WETOKEN = { False:"we", True:"We" }
+OURTOKEN = { False:"onze", True:"Onze" }
 POSSESSIVE = { False:"mijn", True:"Mijn" }
 REFLEXIVE = { False:"mijzelf", True:"Mijzelf" }
 POSSESSIVETOKENS = { MALE:["zijn"], FEMALE:["haar"] }
@@ -107,15 +108,21 @@ def nameCheckForMinusOneToken(targetName,sourceName,suffix):
            name == sourceName+suffix: return(True)
     return(False)
 
-def nameMatch(targetName,sourceName,suffix=""):
-    targetName = targetName.lower()
-    sourceName = sourceName.lower()
-    if targetName+suffix == sourceName or \
-       targetName == sourceName+suffix: return(True)
-    if nameCheckForSingleWord(targetName,sourceName,suffix): return(True)
-    if nameCheckForSingleWord(sourceName,targetName,suffix): return(True)
-    if nameCheckForMinusOneToken(targetName,sourceName,suffix): return(True)
-    if nameCheckForMinusOneToken(sourceName,targetName,suffix): return(True)
+def nameMatch(targetNames,sourceNames,suffix=""):
+    for targetName in targetNames:
+        for sourceName in sourceNames:
+            targetName = targetName.lower()
+            sourceName = sourceName.lower()
+            if targetName+suffix == sourceName or \
+               targetName == sourceName+suffix: return(True)
+            if nameCheckForSingleWord(targetName,sourceName,suffix):
+                return(True)
+            if nameCheckForSingleWord(sourceName,targetName,suffix): 
+                return(True)
+            if nameCheckForMinusOneToken(targetName,sourceName,suffix): 
+                return(True)
+            if nameCheckForMinusOneToken(sourceName,targetName,suffix): 
+                return(True)
     return(False)
 
 def egofy(processedText,name,gender):
@@ -135,14 +142,14 @@ def egofy(processedText,name,gender):
                 if not textInitial and \
                    re.search(r"-PER",tokenData[NE]) and \
                    not re.search(r"^VZ[^_]*$",tokenData[POS]) and \
-                   nameMatch(token,name):
+                   nameMatch([token],[name]):
                        if re.search(r"VZ",lastPOS): 
                            text += METOKEN[sentenceInitial]+" "
                        else: 
                            text += ITOKEN[sentenceInitial]+" "
                 elif not tokenData[NE] == "O" and \
-                     (nameMatch(token,name,"s") or \
-                      nameMatch(token,name,"'s")):
+                     (nameMatch([token],[name],"s") or \
+                      nameMatch([token],[name],"'s")):
                     text += POSSESSIVE[sentenceInitial]+" "
                 elif re.search(r"^VNW",tokenData[POS]) and \
                      re.search(r"pers",tokenData[POS]) and \
@@ -167,6 +174,11 @@ def egofy(processedText,name,gender):
                      re.search(r"bez",tokenData[POS]) and \
                      token.lower() in POSSESSIVETOKENS[gender]:
                     text += POSSESSIVE[sentenceInitial]+" "
+                elif re.search(r"^VNW",tokenData[POS]) and \
+                     re.search(r"bez",tokenData[POS]) and \
+                     re.search(r"mv",tokenData[POS]) and \
+                     re.search(r"3",tokenData[POS]):
+                    text += OURTOKEN[sentenceInitial]+" "
                 else:
                     text += token+" "
                 lastPOS = tokenData[POS]
