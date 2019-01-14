@@ -69,20 +69,22 @@ PLOTHEIGHT = 4
 BARWIDTH = 1.0
 IMAGEFILE = "tactus.png"
 
-def makeBottomValues(fieldDataList,index):
+def makeBottomValues(fieldDataList,index,format):
     bottomValues = []
     for i in range(0,len(fieldDataList)):
         for j in range(0,len(fieldDataList[i])):
             while len(bottomValues) < j+1: bottomValues.append(0)
-            if i < index: bottomValues[j] += fieldDataList[i][j]
+            if i < index: 
+                if format != "": bottomValues[j] += max(fieldDataList[i])
+                else: bottomValues[j] += fieldDataList[i][j]
     return(bottomValues)
 
-def makePlot(fieldDataList,fieldNames):
+def makePlot(fieldDataList,fieldNames,format):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
     xvalues = range(0,len(fieldDataList[0]))
     barplots = []
     for i in range(0,len(fieldDataList)):
-        bottomValues = makeBottomValues(fieldDataList,i)
+        bottomValues = makeBottomValues(fieldDataList,i,format)
         barplot = \
             plt.bar(xvalues,fieldDataList[i],width=BARWIDTH,bottom=bottomValues)
         barplots.append(barplot)
@@ -91,10 +93,10 @@ def makePlot(fieldDataList,fieldNames):
     plt.savefig(IMAGEFILE)
     plt.show()
     
-def visualize(file,features):
+def visualize(file,features,format=""):
     data = readData(file)
     featureDataList = selectData(data,features)
-    makePlot(featureDataList,features)
+    makePlot(featureDataList,features,format)
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
