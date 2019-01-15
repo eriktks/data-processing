@@ -24,13 +24,13 @@ def removeMetaData(row):
     if SENDER in row: del(row[SENDER])
     return(row)
 
-def readData(inFileName):
+def readData(inFileName,target):
     inFile = open(inFileName,"r")
     data = []
     csvReader = csv.DictReader(inFile,delimiter=",")
     for row in csvReader:
         if (DATE in row and row[DATE] in clientDatesList) or \
-           (SENDER in row and row[SENDER] == CLIENT): 
+           (SENDER in row and row[SENDER] == target): 
                data.append(removeMetaData(row))
     inFile.close()
     return(data)
@@ -93,8 +93,9 @@ def makePlot(fieldDataList,fieldNames,format):
     plt.savefig(IMAGEFILE)
     plt.show()
     
-def visualize(file,features,format=""):
-    data = readData(file)
+def visualize(file,features,format="",target=CLIENT):
+    data = readData(file,target)
+    if len(data) == 0: sys.exit("no data found!")
     featureDataList = selectData(data,features)
     makePlot(featureDataList,features,format)
 
@@ -161,18 +162,18 @@ def printSummary(summary,type=DATA):
             print(" "+featureName,end="")
     print("\n",end="")
 
-def summarizeFeature(file,feature):
-    data = readData(file)
+def summarizeFeature(file,feature,target=CLIENT):
+    data = readData(file,target)
     summary = summarizeDataFeature(data,feature)
     printSummary(summary,FEATURE)        
 
-def summarizeMail(file,mail):
-    data = readData(file)
+def summarizeMail(file,mail,target=CLIENT):
+    data = readData(file,target)
     summary = summarizeDataMail(data,mail-1)
     printSummary(summary,MAIL)
 
-def summarize(file):
-    data = readData(file)
+def summarize(file,target=CLIENT):
+    data = readData(file,target)
     summary = summarizeData(data)
     printSummary(summary)
 
