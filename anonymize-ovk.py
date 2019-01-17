@@ -1,14 +1,19 @@
 #!/usr/bin/python3 -W all
 # anonymize.py: remove personal information from any text file
-# usage: anonymize.py < nerfile
-# note: expects line input in ner format: word SPACE pos SPACE ner-tag
+# usage: anonymize.py [-l] [-n] < nerfile
+# notes:
+# - expects line input in ner format: word SPACE pos SPACE ner-tag
+# - option -l invokes list output: one token per line
+# - option -n enables storing newly discovered entities
 # 20180604 erikt(at)xs4all.nl
 
+import getopt
 import random
 import re
 import sys
 
 COMMAND = sys.argv.pop(0)
+USAGE = "usage: "+COMMAND+" [-l]"
 NAMESDIR = "/home/erikt/projects/e-mental-health/usb/tmp"
 NAMEFILE = NAMESDIR+"/names-ovk.txt"
 NEOTHER = "O"
@@ -37,6 +42,14 @@ WEEKDAYS = [ "zondag","maandag","dinsdag","woensdag","donderdag", \
              "Vrijdag","Zaterdag", \
              "zondags","maandags","dinsdags","woensdags","donderdags", \
              "vrijdags","zaterdags" ]
+names = {}
+newNames = {}
+
+def error(string):
+    sys.exit(COMMAND+": error: "+string)
+
+def warn(string):
+    print(COMMAND+": warning: "+string)
 
 def addName(name,myClass):
     global names
@@ -50,12 +63,14 @@ def storeNewNames():
     global newNames
 
     if len(newNames) > 0:
-        outFile = open(NAMEFILE,"a")
-        keys = list(newNames.keys())
-        random.shuffle(keys)
-        for key in keys:
-            print(key,newNames[key],file=outFile)
-        outFile.close()
+        try:
+            outFile = open(NAMEFILE,"a")
+            keys = list(newNames.keys())
+            random.shuffle(keys)
+            for key in keys:
+                print(key,newNames[key],file=outFile)
+            outFile.close()
+        except Exception as e: warn("cannot save new entities in file "+NAMEFILE+": "+str(e))
     return()
 
 def compressNE(tokens):
@@ -80,9 +95,10 @@ def compressNE(tokens):
 def isEmailHead(tokens):
     return(len(tokens) > 1 and tokens[0] in SKIP and tokens[1] == ":")
 
-def anonymize(tokens,pos,ner):
+def anonymize(tokens,pos,ner,options):
     global names
 
+    formerTokens = list(tokens)
     if not isEmailHead(tokens):
         for i in range(0,len(tokens)):
             if tokens[i] in names.keys():
@@ -104,12 +120,20 @@ def anonymize(tokens,pos,ner):
                 tokens[i] = ner[i]
             tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
             tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
-    tokens = compressNE(tokens)
-    line = " ".join(tokens)
+    if "-l" in options:
+        line = ""
+        for i in range(0,len(tokens)):
+            partsT = tokens[i].split("_")
+            partsF = formerTokens[i].split("_")
+            for j in range(0,len(partsT)): line += partsF[j]+"\t"+partsT[j]+"\n"
+    else:
+        tokens = compressNE(tokens)
+        line = " ".join(tokens)
     return(line)
 
 def readKnownNames():
-    names = {}
+    global names
+
     try: 
         inFile = open(NAMEFILE,"r")
         for line in inFile:
@@ -118,14 +142,14 @@ def readKnownNames():
             except: sys.exit(COMMAND+": unexpected line in name file: "+line)
             names[token] = ner
         inFile.close()
-    except: pass
+    except Exception as e: warn("cannot read new entities from file "+NAMEFILE+": "+str(e))
     return(names,{})
 
 def posTag2base(posTag):
     return(re.sub(r"\(.*$","",posTag))
 
 def neTag2base(neTag):
-    return(re.sub(r"^.-","",neTag))
+    return(re.sub(r".-","",neTag))
 
 def readSentence():
     tokens,pos,ner = [[],[],[]]
@@ -145,15 +169,26 @@ def readSentence():
                 return(tokens,pos,ner)
     return(tokens,pos,ner)
 
+def processOptions(argv):
+    try:
+        optionList, files = getopt.getopt(argv,"ln",[])
+        options = {}
+        for option, arg in optionList:
+            if option == "-l" or option == "-n": options[option] = True
+            else: sys.exit(USAGE)
+        return(options)
+    except Exception as e: error(USAGE+" "+str(e))
+
 def main(argv):
     global names,newNames
 
+    options = processOptions(argv)
     names,newNames = readKnownNames()
     tokens,pos,ner = readSentence()
     while len(tokens) > 0:
-        print(anonymize(tokens,pos,ner))
+        print(anonymize(tokens,pos,ner,options))
         tokens,pos,ner = readSentence()
-    storeNewNames()
+    if "-n" in options: storeNewNames()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))

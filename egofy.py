@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
     egofy.py: change Dutch biographic text to autobiographic text
-    usage: egofy.py < file.txt
+    usage: egofy.py [-t file.txt ] [-p file.txt.pos] [-s]
     notes: 
-    * requires frog running and listening on localhost port 8080
-    * frog requires tokenization multi word units, pos and ner; skip lac
+    * requires frog running and listening on localhost port 8080 (for -t)
+    * frog requires tokenization, multiword units, pos and ner; skip lac
+    * option -s saves linguistic analysis
     20190111 erikt(at)xs4all.nl
 """
 
 from pynlpl.clients.frogclient import FrogClient
+import getopt
 import re
 import sys
 
 COMMAND = sys.argv.pop(0)
+USAGE = "usage: "+COMMAND+" [-t file.txt] [-p file.txt.pos] [-s]"
 HOST = "localhost"
 FEMALE = "fem"
 MALE = "masc"
@@ -37,14 +40,16 @@ def error(string):
     sys.exit(COMMAND+": error: "+string)
 
 def connectToFrog():
-    try: frogClient = FrogClient(HOST,PORT,returnall=True)
+    try:
+        frogClient = FrogClient(HOST,PORT,returnall=True)
+        return(frogClient)
     except Exception as e: error(NOFROGCONTACTMSG+" "+str(e))
-    return(frogClient)
 
 def processLineWithFrog(frogClient,text):
-    try: frogOutput = frogClient.process(text)
+    try:
+        frogOutput = frogClient.process(text)
+        return(frogOutput)
     except Exception as e: error(NOFROGOUTPUTMSG+" "+str(e))
-    return(frogOutput)
 
 def processTextWithFrog(text):
     frogClient = connectToFrog()
@@ -60,6 +65,17 @@ def processStdinWithFrog():
     for line in sys.stdin:
         frogOutput = processLineWithFrog(frogClient,line)
         processedText.append(frogOutput)
+    return(processedText)
+
+def processTextWithFrog(inFileName):
+    frogClient = connectToFrog()
+    processedText = []
+    try: inFile = open(inFileName,"r")
+    except Exception as e: sys.exit(COMMAND+": cannot read file "+inFileName)
+    for line in inFile:
+        frogOutput = processLineWithFrog(frogClient,line)
+        processedText.append(frogOutput)
+    inFile.close()
     return(processedText)
 
 def getGenderDataFromVNW(processedText):
@@ -196,15 +212,61 @@ def readFile(inFileName):
     except Exception as e: sys.exit(COMMAND+": "+str(e))
     return(text)
 
+def processOptions(argv):
+    try:
+        optionList, files = getopt.getopt(argv,"p:t:s",[])
+        options = {}
+        for option, arg in optionList:
+            if option == "-t" or option == "-p": options[option] = arg
+            elif option == "-s": options[option] = True
+            else: sys.exit(USAGE)
+        return(options)
+    except Exception as e: error(USAGE+" "+str(e))
+
+def convertNones(valueList):
+    for i in range(0,len(valueList)):
+        if valueList[i] != "None": return(valueList)
+    for i in range(0,len(valueList)):
+        valueList[i] = None
+    return(valueList)
+
+def readPosFile(inFileName):
+    try: inFile = open(inFileName,"r")
+    except Exception as e: sys.exit(COMMAND+": cannot read from file "+inFileName)
+    paragraph,processedText = [],[]
+    for line in inFile:
+        line = line.strip()
+        if line !="": paragraph.append(convertNones(line.split("\t")))
+        else:
+            processedText.append(paragraph)
+            paragraph = []
+    if len(paragraph) > 0: processedText.append(paragraph)
+    return(processedText)
+
+def savePosFile(processedOptions,outFileName):
+    outFileName += ".pos"
+    try: outFile = open(outFileName,"w")
+    except Exception as e: sys.exit(COMMAND+": cannot write file "+outFileName)
+    for paragraph in processedOptions:
+        if len(paragraph) == 0: print("\n",file=outFile,end="")
+        for token in paragraph:
+            for i in range(0,len(token)):
+                if i > 0: print("\t",file=outFile,end="")
+                print(token[i],file=outFile,end="")
+            print("\n",file=outFile,end="")
+    outFile.close()
+
 def main(argv):
-    processedText = processStdinWithFrog()
-    gender = guessGender(processedText)
-    name = guessName(processedText)
-    text = egofy(processedText,name,gender)
-    print(text)
-    #for paragraph in processedText:
-    #    for tokenData in paragraph:
-    #        print(tokenData[TOKEN],tokenData[POS],tokenData[NE])
+    options = processOptions(argv)
+    if "-p" in options: processedText = readPosFile(options["-p"])
+    elif "-t" in options: processedText = processTextWithFrog(options["-t"])
+    else: sys.exit(USAGE)
+    if "-s" in options and "-t" in options: savePosFile(processedText,options["-t"])
+    if len(processedText) > 0:
+        gender = guessGender(processedText)
+        name = guessName(processedText)
+        text = egofy(processedText,name,gender)
+        print(text)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
