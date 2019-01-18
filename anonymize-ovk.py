@@ -27,7 +27,6 @@ MONTH = "MONTH"
 MAIL = "MAIL"
 MISC = "MISC"
 NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL,MISC}
-DATETAGS = {NUM,DAY,DATE,MONTH}
 TAGNUM = "TW"
 DOMAINS = "(com|net|nl|org)"
 SKIP = { "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" }
@@ -73,22 +72,50 @@ def storeNewNames():
         except Exception as e: warn("cannot save new entities in file "+NAMEFILE+": "+str(e))
     return()
 
+def removeFromList(list,element):
+    return(list[0:element]+list[element+1:])
+
 def compressNE(tokens):
     i = 0
     while i < len(tokens):
         if tokens[i] in NETAGS:
             while i < len(tokens)-1 and tokens[i+1] == tokens[i]: 
-                tokens = tokens[:i]+tokens[i+1:]
-            if tokens[i] in DATETAGS:
-                while i < len(tokens)-1 and tokens[i+1] in DATETAGS:
-                    tokens = tokens[:i]+[DATE]+tokens[i+2:]
-            if tokens[i] == PER and i < len(tokens)-2 and \
+                tokens = removeFromList(tokens,i)
+            if tokens[i] == MONTH:
+                if i < len(tokens) and tokens[i+1] in [NUM]: 
+                    removeFromList(tokens,i+1)
+                tokens[i] = DATE
+                if i > 0 and tokens[i-1] in [DAY,NUM]: 
+                    removeFromList(tokens,i-1)
+            elif tokens[i] == PER and i < len(tokens)-2 and \
                tokens[i+1] in NAMEWORDS and tokens[i+2] == PER:
-                tokens = tokens[:i]+tokens[i+2:]
-            if tokens[i] == PER and i < len(tokens)-3 and \
+                tokens = removeFromList(tokens,i)
+                tokens = removeFromList(tokens,i)
+            elif tokens[i] == PER and i < len(tokens)-3 and \
                tokens[i+1] in NAMEWORDS and tokens[i+2] in NAMEWORDS and \
                tokens[i+3] == PER:
-                tokens = tokens[:i]+tokens[i+3:]
+                tokens = removeFromList(tokens,i)
+                tokens = removeFromList(tokens,i)
+                tokens = removeFromList(tokens,i)
+        i += 1
+    return(tokens)
+
+def compressNElist(tokens):
+    i = 0
+    while i < len(tokens):
+        if tokens[i] in NETAGS:
+            if tokens[i] == MONTH:
+                if i < len(tokens) and tokens[i+1] in [NUM]: tokens[i+1] = DATE
+                tokens[i] = DATE
+                if i > 0 and tokens[i-1] in [DAY,NUM]: tokens[i-1] = DATE
+            elif tokens[i] == PER and i < len(tokens)-2 and \
+               tokens[i+1] in NAMEWORDS and tokens[i+2] == PER:
+                tokens[i+1] = PER
+            elif tokens[i] == PER and i < len(tokens)-3 and \
+               tokens[i+1] in NAMEWORDS and tokens[i+2] in NAMEWORDS and \
+               tokens[i+3] == PER:
+                tokens[i+1] = PER
+                tokens[i+2] = PER
         i += 1
     return(tokens)
 
@@ -121,6 +148,7 @@ def anonymize(tokens,pos,ner,options):
             tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
             tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
     if "-l" in options:
+        tokens = compressNElist(tokens)
         line = ""
         for i in range(0,len(tokens)):
             partsT = tokens[i].split("_")
