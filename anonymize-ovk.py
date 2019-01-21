@@ -81,7 +81,7 @@ def compressNE(tokens):
         if tokens[i] in NETAGS:
             while i < len(tokens)-1 and tokens[i+1] == tokens[i]: 
                 tokens = removeFromList(tokens,i)
-            if tokens[i] == MONTH:
+            if tokens[i] == MONTH or tokens[i] == DATE:
                 if i < len(tokens) and tokens[i+1] in [NUM]: 
                     removeFromList(tokens,i+1)
                 tokens[i] = DATE
@@ -104,7 +104,7 @@ def compressNElist(tokens):
     i = 0
     while i < len(tokens):
         if tokens[i] in NETAGS:
-            if tokens[i] == MONTH:
+            if tokens[i] == MONTH or tokens[i] == DATE:
                 if i < len(tokens) and tokens[i+1] in [NUM]: tokens[i+1] = DATE
                 tokens[i] = DATE
                 if i > 0 and tokens[i-1] in [DAY,NUM]: tokens[i-1] = DATE
