@@ -11,7 +11,7 @@ import sys
 COMMAND = sys.argv.pop(0)
 DAAPDICTFILE = "/home/erikt/projects/e-mental-health/DAAP09.6/WRAD/WRAD.Wt"
 WINDOWSIZE = 100
-MOVINGWEIGHTS = {}
+movingWeights = {}
 
 def readDict(inFileName):
     try: 
@@ -52,42 +52,54 @@ def getRealContextIndex(contextIndex,weightListLen):
         contextIndex = weightListLen-1-contextIndex
     return(contextIndex)
 
-def movingWeight(index):
-    global MOVINGWEIGHTS
+def eFunction(windowSize,index):
+    return(exp(-2.0*pow(windowSize,2.0) * \
+               (pow(windowSize,2.0)+pow(index,2.0)) / \
+               pow(pow(windowSize,2.0)-pow(index,2.0),2.0)))
 
-    if str(index) in MOVINGWEIGHTS: return(MOVINGWEIGHTS[str(index)])
-    elif index <= -WINDOWSIZE or index >= WINDOWSIZE: 
-        MOVINGWEIGHTS[str(index)] = 0.0
-        return(MOVINGWEIGHTS[str(index)])
+def movingWeight(index,windowSize):
+    global movingWeights
+
+    if str(index) in movingWeights: return(movingWeights[str(index)])
+    elif index <= -windowSize or index >= windowSize: 
+        movingWeights[str(index)] = 0.0
+        return(movingWeights[str(index)])
     else:
-        nominator = exp(-2.0*pow(WINDOWSIZE,2.0)*(pow(WINDOWSIZE,2.0)+pow(index,2.0))/pow((pow(WINDOWSIZE,2.0)-pow(index,2.0)),2.0))
+        nominator = eFunction(windowSize,index)
         denominator = 0.0
-        for j in range(1-WINDOWSIZE,WINDOWSIZE):
-            denominator += exp(-2.0*pow(WINDOWSIZE,2.0)*(pow(WINDOWSIZE,2.0)+pow(j,2.0))/pow((pow(WINDOWSIZE,2.0)-pow(j,2.0)),2.0))
-        MOVINGWEIGHTS[str(index)] = nominator/denominator
-        return(MOVINGWEIGHTS[str(index)])
+        for j in range(1-windowSize,windowSize):
+            denominator += eFunction(windowSize,j)
+        movingWeights[str(index)] = nominator/denominator
+        return(movingWeights[str(index)])
 
-def computeAverage(weightList,index):
+def computeAverage(weightList,index,windowSize):
     total = 0
-    for contextIndex in range(index-WINDOWSIZE+1,index+WINDOWSIZE):
+    for contextIndex in range(index-windowSize+1,index+windowSize):
         realContextIndex = getRealContextIndex(contextIndex,len(weightList))
-        total += weightList[realContextIndex]*movingWeight(contextIndex-index)
-    return(total/(-1.0*2.0*WINDOWSIZE))
+        total += weightList[realContextIndex]*movingWeight(contextIndex-index,windowSize)
+    return(total)
 
-def computeAverageWeights(weightList):
+def computeAverageWeights(weightList,windowSize):
     averageWeights = []
     for i in range(0,len(weightList)):
-        averageWeights.append(computeAverage(weightList,i))
+        averageWeights.append(computeAverage(weightList,i,windowSize))
     return(averageWeights)
 
 def printResults(averageWeights):
     for average in averageWeights: print(average)
 
-def main(argv):
+def daap(text,windowSize=WINDOWSIZE):
+    global movingWeights
+
+    movingWeights.clear()
     dictionary = readDict(DAAPDICTFILE)
+    weightList = getWeightList(text.lower(),dictionary)
+    averageWeights = computeAverageWeights(weightList,windowSize)
+    return(averageWeights)
+
+def main(argv):
     text = readText()
-    weightList = getWeightList(text,dictionary)
-    averageWeights = computeAverageWeights(weightList)
+    averageWeights = daap(text)
     printResults(averageWeights)
 
 if __name__ == "__main__":
