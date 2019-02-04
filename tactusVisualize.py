@@ -11,6 +11,7 @@
 import csv
 
 CLIENT = "CLIENT"
+COUNSELOR = "COUNSELOR"
 DATE = "DATE"
 NBROFSENTS = "NBROFSENTS"
 NBROFTOKENS = "NBROFTOKENS"
@@ -24,14 +25,11 @@ def removeMetaData(row):
     if SENDER in row: del(row[SENDER])
     return(row)
 
-def readData(inFileName,target):
+def readData(inFileName):
     inFile = open(inFileName,"r")
     data = []
     csvReader = csv.DictReader(inFile,delimiter=",")
-    for row in csvReader:
-        if (DATE in row and row[DATE] in clientDatesList) or \
-           (SENDER in row and row[SENDER] == target): 
-               data.append(removeMetaData(row))
+    for row in csvReader: data.append(row)
     inFile.close()
     return(data)
 
@@ -63,11 +61,13 @@ def selectData(data,fieldNameList):
 # You can use this image file for presentations.
 
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 PLOTWIDTH = 15
 PLOTHEIGHT = 4
 BARWIDTH = 1.0
 IMAGEFILE = "tactus.png"
+DATEFORMAT = "%Y-%m-%dT%H:%M:%S"
 
 def makeBottomValues(fieldDataList,index,format):
     bottomValues = []
@@ -79,7 +79,7 @@ def makeBottomValues(fieldDataList,index,format):
                 else: bottomValues[j] += fieldDataList[i][j]
     return(bottomValues)
 
-def makePlot(fieldDataList,fieldNames,format):
+def makePlotIndex(fieldDataList,fieldNames,format):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
     xvalues = range(0,len(fieldDataList[0]))
     barplots = []
@@ -93,11 +93,74 @@ def makePlot(fieldDataList,fieldNames,format):
     plt.savefig(IMAGEFILE)
     plt.show()
     
-def visualize(file,features,format="",target=CLIENT):
-    data = readData(file,target)
+def visualizeIndex(file,features,format=""):
+    data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
     featureDataList = selectData(data,features)
-    makePlot(featureDataList,features,format)
+    makePlotIndex(featureDataList,features,format)
+
+def eraseOtherSenders(fieldDataList,senders,target):
+    outList = []
+    nbrOfMails = 0
+    for i in range(0,len(fieldDataList)):
+        outSubList = []
+        for j in range(0,len(fieldDataList[i])):
+            try:
+                if senders[j] != target: 
+                    outSubList.append(0.0)
+                else: 
+                    outSubList.append(fieldDataList[i][j])
+                    if i == 0: nbrOfMails += 1
+            except Exception as e: 
+                sys.exit("Error processing filedDataList: "+str(e))
+        outList.append(outSubList)
+    return(outList,nbrOfMails)
+
+def addZeroListForHeight(fieldDataList):
+    if len(fieldDataList) > 0:
+        zeroList = []
+        for i in range(0,len(fieldDataList[0])): zeroList.append(0.0)
+        fieldDataList.append(zeroList)
+    return(fieldDataList)
+
+def pluralTest(number):
+    if number != 1: return("s")
+    else: return("")
+
+def makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,target):
+    plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
+    plt.title(target,fontdict={"fontweight":"bold"})
+    ax = plt.subplot(111)
+    ax.xaxis_date()
+    xvalues = dates
+    barplots = []
+    targetFieldDataList,nbrOfMails = eraseOtherSenders(fieldDataList,senders,target)
+    targetFieldDataList = addZeroListForHeight(targetFieldDataList)
+    for i in range(0,len(targetFieldDataList)):
+        bottomValues = makeBottomValues(fieldDataList,i,format)
+        barplot = \
+            plt.bar(xvalues,targetFieldDataList[i],width=barwidth,bottom=bottomValues)
+        barplots.append(barplot)
+    plt.legend(tuple([b[0] for b in barplots]),tuple(fieldNames))
+    plt.title(target+" ("+str(nbrOfMails)+" mail"+pluralTest(nbrOfMails)+")",fontdict={"fontweight":"bold"})
+    plt.xticks(rotation=0)
+    plt.savefig(IMAGEFILE)
+    plt.show()
+    
+def makePlotDates(fieldDataList,fieldNames,format,barwidth,dates,senders):
+    seenSenders = {}
+    for sender in sorted(senders):
+        if sender not in seenSenders:
+            makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,sender)
+            seenSenders[sender] = True
+
+def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,index=0):
+    data = readData(file)
+    if len(data) == 0: sys.exit("no data found!")
+    dates = [datetime.strptime(d["DATE"],DATEFORMAT) for d in data]
+    senders = [d[SENDER] for d in data]
+    featureDataList = selectData(data,features)
+    makePlotDates(featureDataList,features,format,barwidth,dates,senders)
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
@@ -163,17 +226,17 @@ def printSummary(summary,type=DATA):
     print("\n",end="")
 
 def summarizeFeature(file,feature,target=CLIENT):
-    data = readData(file,target)
+    data = readData(file)
     summary = summarizeDataFeature(data,feature)
     printSummary(summary,FEATURE)        
 
 def summarizeMail(file,mail,target=CLIENT):
-    data = readData(file,target)
+    data = readData(file)
     summary = summarizeDataMail(data,mail-1)
     printSummary(summary,MAIL)
 
 def summarize(file,target=CLIENT):
-    data = readData(file,target)
+    data = readData(file)
     summary = summarizeData(data)
     printSummary(summary)
 
