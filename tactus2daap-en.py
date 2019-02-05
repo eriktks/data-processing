@@ -252,14 +252,14 @@ def emails2daapMailInternal(emails,features,words):
     global headerPrinted
 
     if not headerPrinted:
-        print(MAILID+","+SENDER+","+DAAP)
+        print(MAILID+","+SENDER+","+DATE+","+DAAP)
         headerPrinted = True
     for mailId in range(0,len(emails)):
         text = emails[mailId][MAILTITLEID]+" "+emails[mailId][MAILBODYID]
         tokens,nbrOfSents = tokenize(text)
         averageWeights = daap.daap(" ".join(tokens))
         for weight in averageWeights:
-            print(str(mailId)+","+emails[mailId][SENDERID]+","+str(weight))
+            print(str(mailId)+","+emails[mailId][SENDERID]+","+emails[mailId][MAILDATEID]+","+str(weight))
 
 def processOptions(argv):
     try:
