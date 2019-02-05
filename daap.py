@@ -8,7 +8,7 @@
 from math import exp,pow
 import sys
 
-COMMAND = sys.argv.pop(0)
+COMMAND = sys.argv[0]
 DAAPDICTFILE = "/home/erikt/projects/e-mental-health/DAAP09.6/WRAD/WRAD.Wt"
 WINDOWSIZE = 100
 movingWeights = {}
