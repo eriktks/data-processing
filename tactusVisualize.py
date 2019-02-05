@@ -18,6 +18,7 @@ NBROFTOKENS = "NBROFTOKENS"
 SENDER = "Sender"
 MAILID = "mailId"
 DAAP = "daap"
+DIARY = "DIARY"
 
 clientDatesList = []
 
@@ -27,11 +28,13 @@ def removeMetaData(row):
     if SENDER in row: del(row[SENDER])
     return(row)
 
-def readData(inFileName):
+def readData(inFileName,diaries=True):
     inFile = open(inFileName,"r")
     data = []
     csvReader = csv.DictReader(inFile,delimiter=",")
-    for row in csvReader: data.append(row)
+    for row in csvReader:
+        if diaries or (SENDER in row and row[SENDER] != DIARY):
+            data.append(row)
     inFile.close()
     return(data)
 
@@ -143,7 +146,7 @@ def makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,tar
             plt.bar(xvalues,targetFieldDataList[i],width=barwidth,bottom=bottomValues)
         barplots.append(barplot)
     plt.legend(tuple([b[0] for b in barplots]),tuple(fieldNames))
-    plt.title(target+" ("+str(nbrOfMails)+" mail"+pluralTest(nbrOfMails)+")",fontdict={"fontweight":"bold"})
+    plt.title(target+" ("+str(nbrOfMails)+" message"+pluralTest(nbrOfMails)+")",fontdict={"fontweight":"bold"})
     plt.xticks(rotation=0)
     plt.savefig(IMAGEFILE)
     plt.show()
@@ -155,8 +158,8 @@ def makePlotDates(fieldDataList,fieldNames,format,barwidth,dates,senders):
             makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,sender)
             seenSenders[sender] = True
 
-def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT):
-    data = readData(file)
+def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,diaries=True):
+    data = readData(file,diaries)
     if len(data) == 0: sys.exit("no data found!")
     dates = [datetime.strptime(d["DATE"],DATEFORMAT) for d in data]
     senders = [d[SENDER] for d in data]
@@ -168,9 +171,10 @@ def makePlotDAAP(data,index):
     values = [ x for x in data if x[MAILID] == index ]
     if len(values) > 0:
         target = values[0][SENDER]
+        date = values[0][DATE]
         nbrOfTokens = len(values)
-        plt.title("Mail "+str(int(index)+1)+"; Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
-        plt.plot(range(0,len(values)),[x[DAAP] for x in values])
+        plt.title("Mail "+str(int(index)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+        plt.plot(range(0,len(values)),[float(x[DAAP]) for x in values])
     else:
         plt.title("Empty data set")
     plt.savefig(IMAGEFILE)
