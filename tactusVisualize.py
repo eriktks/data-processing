@@ -16,6 +16,8 @@ DATE = "DATE"
 NBROFSENTS = "NBROFSENTS"
 NBROFTOKENS = "NBROFTOKENS"
 SENDER = "Sender"
+MAILID = "mailId"
+DAAP = "daap"
 
 clientDatesList = []
 
@@ -129,7 +131,6 @@ def pluralTest(number):
 
 def makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,target):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
-    plt.title(target,fontdict={"fontweight":"bold"})
     ax = plt.subplot(111)
     ax.xaxis_date()
     xvalues = dates
@@ -154,13 +155,36 @@ def makePlotDates(fieldDataList,fieldNames,format,barwidth,dates,senders):
             makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,sender)
             seenSenders[sender] = True
 
-def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,index=0):
+def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
     dates = [datetime.strptime(d["DATE"],DATEFORMAT) for d in data]
     senders = [d[SENDER] for d in data]
     featureDataList = selectData(data,features)
     makePlotDates(featureDataList,features,format,barwidth,dates,senders)
+
+def makePlotDAAP(data,index):
+    plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
+    values = [ x for x in data if x[MAILID] == index ]
+    if len(values) > 0:
+        target = values[0][SENDER]
+        nbrOfTokens = len(values)
+        plt.title("Mail "+str(int(index)+1)+"; Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+        plt.plot(range(0,len(values)),[x[DAAP] for x in values])
+    else:
+        plt.title("Empty data set")
+    plt.savefig(IMAGEFILE)
+    plt.show()
+    
+def visualizeDAAP(file):
+    data = readData(file)
+    if len(data) == 0: sys.exit("no data found!")
+    seen = {}
+    for dataItem in data:
+        index = dataItem[MAILID]
+        if not index in seen:
+            makePlotDAAP(data,index)
+            seen[index] = True
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
@@ -200,21 +224,28 @@ def summarizeData(data):
     summary = {}
     for row in data:
         for featureName in row:
-            if row[featureName].isdigit() :
+            if row[featureName].isdigit():
                 if featureName in summary: 
                     summary[featureName] += int(row[featureName])
                 else: 
                     summary[featureName] = int(row[featureName])
+            else:
+                if featureName in summary: 
+                    summary[featureName] += 1
+                else: 
+                    summary[featureName] = 1
     return(summary)
 
-def printSummary(summary,type=DATA):
+def printSummary(data,summary,type=DATA):
     if NBROFTOKENS in summary: print("tokens:",int(summary[NBROFTOKENS]))
     if NBROFMATCHES in summary: print("number of matches:",summary[NBROFMATCHES])
     for element in sorted(summary.items(), \
                           key=operator.itemgetter(1),reverse=True):
         featureName,frequency = element
-        if not featureName in (NBROFTOKENS,NBROFMATCHES) and frequency > 0.0: 
-            if type != DATA: print("%5.2f%% %s" % (100.0*frequency,featureName))
+        if frequency > 0.0:
+            if featureName in (NBROFTOKENS,NBROFSENTS) or \
+                not data[0][featureName].isdigit(): print("      "+featureName)
+            elif type != DATA: print("%5.2f%% %s" % (100.0*frequency,featureName))
             else: print("%5d %s (%0.2f%%)" % \
                     (frequency,featureName,
                      100.0*float(frequency)/float(summary[NBROFTOKENS])))
@@ -228,15 +259,15 @@ def printSummary(summary,type=DATA):
 def summarizeFeature(file,feature,target=CLIENT):
     data = readData(file)
     summary = summarizeDataFeature(data,feature)
-    printSummary(summary,FEATURE)        
+    printSummary(data,summary,FEATURE)        
 
 def summarizeMail(file,mail,target=CLIENT):
     data = readData(file)
     summary = summarizeDataMail(data,mail-1)
-    printSummary(summary,MAIL)
+    printSummary(data,summary,MAIL)
 
 def summarize(file,target=CLIENT):
     data = readData(file)
     summary = summarizeData(data)
-    printSummary(summary)
+    printSummary(data,summary)
 

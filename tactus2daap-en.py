@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 """
     tactus2daap-en.py: convert xml files from tactus to daap scores per mail csv
-    usage: tactus2daap-en.py file1.xml [file2.xml ...] > file1.csv
-    note: based on tactus2liwc-en.py
+    usage: tactus2daap-en.py [-m] file1.xml [file2.xml ...] > file1.csv
+    notes: 
+    * option -m activates mail-internal analysis (default: per-mail analysis)
+    * based on tactus2liwc-en.py
     20190204 erikt(at)xs4all.nl
 """
 
@@ -12,9 +14,11 @@ import operator
 import re
 import sys
 import xml.etree.ElementTree as ET
+import getopt
+import daap
 
 COMMAND = sys.argv.pop(0)
-USAGE = "usage: "+COMMAND+" file1 [file2 ...]"
+USAGE = "usage: "+COMMAND+" [-m] file1 [file2 ...]"
 INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
 QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
@@ -47,6 +51,10 @@ NBROFMATCHES = "NBROFMATCHES"
 NUMBER = "number"
 METADATAFEATURES = [DATE,NBROFTOKENS,NBROFSENTS,NBROFMATCHES,SENDER]
 DAAP = "daap"
+DAAPAVG = "daapavg"
+DAAPPOS = "daappos"
+DAAPNEG = "daapneg"
+MAILID = "mailId"
 
 numberId = -1
 headerPrinted = False
@@ -187,12 +195,17 @@ def addFeatureToCounts(counts,feature):
 def text2daap(words,tokens):
     global numberId
 
-    counts = { NBROFMATCHES:0 , DAAP:0.0 }
+    counts = { NBROFMATCHES:0 , DAAPAVG:0.0, DAAPPOS:0.0, DAAPNEG:0.0 }
     for token in tokens:
         if token in words:
             addFeatureToCounts(counts,NBROFMATCHES)
-            counts[DAAP] += words[token] 
-    if counts[NBROFMATCHES] > 0: counts[DAAP] /= counts[NBROFMATCHES]
+            counts[DAAPAVG] += words[token]
+            if words[token] > 0: counts[DAAPPOS] += words[token]
+            if words[token] < 0: counts[DAAPNEG] += words[token]
+    if counts[NBROFMATCHES] > 0: 
+        counts[DAAPAVG] /= counts[NBROFMATCHES]
+        counts[DAAPPOS] /= counts[NBROFMATCHES]
+        counts[DAAPNEG] /= counts[NBROFMATCHES]
     return(counts)
 
 def readTextFromStdin():
@@ -219,7 +232,7 @@ def printResults(features,results):
         else: print(0,end="")
     print()
 
-def emails2daap(emails,features,words):
+def emails2daapPerMail(emails,features,words):
     global headerPrinted
 
     if not headerPrinted:
@@ -235,18 +248,44 @@ def emails2daap(emails,features,words):
         results[DATE] = row[MAILDATEID]
         printResults(features,results)
 
+def emails2daapMailInternal(emails,features,words):
+    global headerPrinted
+
+    if not headerPrinted:
+        print(MAILID+","+SENDER+","+DAAP)
+        headerPrinted = True
+    for mailId in range(0,len(emails)):
+        text = emails[mailId][MAILTITLEID]+" "+emails[mailId][MAILBODYID]
+        tokens,nbrOfSents = tokenize(text)
+        averageWeights = daap.daap(" ".join(tokens))
+        for weight in averageWeights:
+            print(str(mailId)+","+emails[mailId][SENDERID]+","+str(weight))
+
+def processOptions(argv):
+    try:
+        optionList, files = getopt.getopt(argv,"m",[])
+        options = {}
+        for option, arg in optionList:
+            if option == "-m": options[option] = True
+            else: sys.exit(USAGE)
+        return(options,files)
+    except Exception as e: sys.exit(USAGE+" "+str(e))
+
 def main(argv):
     emails = []
     questionnaires = []
+    options,files = processOptions(argv)
     words = readDaapDict(DAAPDIR+DAAPFILE)
-    features = [DAAP]
-    for inFile in sys.argv:
+    features = [DAAPAVG,DAAPPOS,DAAPNEG]
+    for inFile in files:
         tree = ET.parse(inFile)
         root = tree.getroot()
         thisId = makeId(inFile)
         emails.extend(getEmailData(root,thisId))
         questionnaires.extend(getQuestionnaires(root,thisId))
-    if len(emails) > 0: emails2daap(emails,features,words)
+    if len(emails) > 0: 
+        if "-m" in options: emails2daapMailInternal(emails,features,words)
+        else: emails2daapPerMail(emails,features,words)
     return(0)
 
 if __name__ == "__main__":
