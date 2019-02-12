@@ -305,21 +305,32 @@ def printResults(features,results):
         else: print(0,end="")
     print()
 
+def printAllResults(features,results):
+    global headerPrinted
+
+    if not headerPrinted:
+        printHeader(features)
+        headerPrinted = True
+    for result in results:
+        printResults(features,results)
+
 def emails2liwc(emails,features,words,prefixes):
     global headerPrinted
 
     if not headerPrinted:
         printHeader(features)
         headerPrinted = True
+    results = []
     for row in emails:
         text = row[MAILTITLEID]+" "+row[MAILBODYID]
         tokens,nbrOfSents = tokenize(text)
-        results = text2liwc(words,prefixes,tokens)
-        results[NBROFTOKENS] = len(tokens)
-        results[NBROFSENTS] = nbrOfSents
-        results[SENDER] = row[SENDERID]
-        results[DATE] = row[MAILDATEID]
-        printResults(features,results)
+        result = text2liwc(words,prefixes,tokens)
+        result[NBROFTOKENS] = len(tokens)
+        result[NBROFSENTS] = nbrOfSents
+        result[SENDER] = row[SENDERID]
+        result[DATE] = row[MAILDATEID]
+        results.append(result)
+    return(results)
 
 def main(argv):
     emails = []
@@ -332,7 +343,9 @@ def main(argv):
         emails.extend(getEmailData(root,thisId))
         emails.extend(getDiaryData(root,thisId))
         questionnaires.extend(getQuestionnaires(root,thisId))
-    if len(emails) > 0: emails2liwc(emails,features,words,prefixes)
+    if len(emails) > 0: 
+        results = emails2liwc(emails,features,words,prefixes)
+        printAllResults(features,results)
     return(0)
 
 if __name__ == "__main__":
