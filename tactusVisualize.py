@@ -84,26 +84,6 @@ def makeBottomValues(fieldDataList,index,format):
                 else: bottomValues[j] += fieldDataList[i][j]
     return(bottomValues)
 
-def makePlotIndex(fieldDataList,fieldNames,format):
-    plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
-    xvalues = range(0,len(fieldDataList[0]))
-    barplots = []
-    for i in range(0,len(fieldDataList)):
-        bottomValues = makeBottomValues(fieldDataList,i,format)
-        barplot = \
-            plt.bar(xvalues,fieldDataList[i],width=BARWIDTH,bottom=bottomValues)
-        barplots.append(barplot)
-    plt.legend(tuple([b[0] for b in barplots]),tuple(fieldNames))
-    plt.xticks(xvalues,[x+1 for x in xvalues])
-    plt.savefig(IMAGEFILE)
-    plt.show()
-    
-def visualizeIndex(file,features,format=""):
-    data = readData(file)
-    if len(data) == 0: sys.exit("no data found!")
-    featureDataList = selectData(data,features)
-    makePlotIndex(featureDataList,features,format)
-
 def eraseOtherSenders(fieldDataList,senders,target):
     outList = []
     nbrOfMails = 0
@@ -111,12 +91,12 @@ def eraseOtherSenders(fieldDataList,senders,target):
         outSubList = []
         for j in range(0,len(fieldDataList[i])):
             try:
-                if senders[j] != target: 
+                if senders[j] != target:
                     outSubList.append(0.0)
-                else: 
+                else:
                     outSubList.append(fieldDataList[i][j])
                     if i == 0: nbrOfMails += 1
-            except Exception as e: 
+            except Exception as e:
                 sys.exit("Error processing filedDataList: "+str(e))
         outList.append(outSubList)
     return(outList,nbrOfMails)
@@ -131,6 +111,36 @@ def addZeroListForHeight(fieldDataList):
 def pluralTest(number):
     if number != 1: return("s")
     else: return("")
+
+def unique(thisList):
+    return(list(set(thisList)))
+
+def makePlotIndexPart(fieldDataList,fieldNames,format,senders,target):
+    plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
+    xvalues = range(0,len(fieldDataList[0]))
+    barplots = []
+    targetFieldDataList,nbrOfMails = eraseOtherSenders(fieldDataList,senders,target)
+    targetFieldDataList = addZeroListForHeight(targetFieldDataList)
+    for i in range(0,len(fieldDataList)):
+        bottomValues = makeBottomValues(targetFieldDataList,i,format)
+        barplot = plt.bar(xvalues,targetFieldDataList[i],width=BARWIDTH,bottom=bottomValues)
+        barplots.append(barplot)
+    plt.legend(tuple([b[0] for b in barplots]),tuple(fieldNames))
+    plt.xticks(xvalues,[x+1 for x in xvalues])
+    plt.title(target+" ("+str(nbrOfMails)+" message"+pluralTest(nbrOfMails)+")",fontdict={"fontweight":"bold"})
+    plt.savefig(IMAGEFILE)
+    plt.show()
+
+def makePlotIndex(fieldDataList,fieldNames,format,senders):
+    for sender in sorted(unique(senders)):
+        makePlotIndexPart(fieldDataList,fieldNames,format,senders,sender)
+    
+def visualizeIndex(file,features,format=""):
+    data = readData(file)
+    if len(data) == 0: sys.exit("no data found!")
+    featureDataList = selectData(data,features)
+    senders = [d[SENDER] for d in data]
+    makePlotIndex(featureDataList,features,format,senders)
 
 def makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,target):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
@@ -152,11 +162,8 @@ def makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,tar
     plt.show()
     
 def makePlotDates(fieldDataList,fieldNames,format,barwidth,dates,senders):
-    seenSenders = {}
-    for sender in sorted(senders):
-        if sender not in seenSenders:
-            makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,sender)
-            seenSenders[sender] = True
+    for sender in sorted(unique(senders)):
+        makePlotDatesPart(fieldDataList,fieldNames,format,barwidth,dates,senders,sender)
 
 def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,diaries=True):
     data = readData(file,diaries)
