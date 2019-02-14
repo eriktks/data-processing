@@ -68,13 +68,19 @@ def main(argv):
     csvReader = csv.DictReader(sys.stdin,delimiter=SEPARATOR)
     print(HEADING)
     data = {}
+    clientid = ""
     for row in csvReader:
+        if clientid != row[FIELDCLIENTID]:
+            if clientid != "":
+                printData(data)
+                data = {}
+            clientid = row[FIELDCLIENTID]
         if row[FIELDSENDER] == CLIENT: person = row[FIELDCLIENTID]
         else: person = row[FIELDCOUNSELORID]
         if person not in data: data[person] = initializeDataField()
         for field in [FIELDNBROFWORDS,FIELDNBROFCHARSINWORDS,FIELDNBROFSENTS,FIELDNBROFTOKENSINSENTS]:
             data[person][field].append(int(row[field]))
-    printData(data)
+    if clientid != "": printData(data)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
