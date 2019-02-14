@@ -32,6 +32,9 @@ def readEmailData():
         emails.append([row[CLIENTID],row[SENDER],row[RECIPIENT],row[DATE],row[SUBJECT],row[BODY]])
     return(emails)
 
+def countMails(emails,sender):
+    return(len([email for email in emails if email[SENDERID] == sender]))
+
 def addToSet(set,element,nbrOfUsed):
     if element[SENDERID] == "CLIENT":
         if len(set) == 0:
@@ -68,15 +71,19 @@ def combineMails(emailsIn):
             currentStart = e
         if currentId != emailsIn[e][CLIENTIDID] or e == len(emailsIn)-1:
             firstMails = combineData(emailsIn,currentStart,e-1,SETSIZE)
-            lastMails = combineData(emailsIn,currentStart,e-1,SETSIZE,getLast=True)
-            emailsOut.extend([firstMails,lastMails])
+            if countMails(emailsIn[currentStart:e-1],"CLIENT") >= 2*SETSIZE:
+                lastMails = combineData(emailsIn,currentStart,e-1,SETSIZE,getLast=True)
+                emailsOut.extend([firstMails, lastMails])
+            else:
+                emailsOut.extend([firstMails])
             currentStart = e
             currentId = emailsIn[e][CLIENTIDID]
     return(emailsOut)
 
 def printResults(features,results,clientids):
-    allFeatures = METADATA+list(features.keys())
+    allFeatures = METADATA+list(features.values())
     csvwriter = csv.DictWriter(sys.stdout,fieldnames=allFeatures)
+    csvwriter.writeheader()
     for r in range(0,len(results)):
         for f in allFeatures: 
             if not f in results[r] or type(results[r][f]) == type(None): 
