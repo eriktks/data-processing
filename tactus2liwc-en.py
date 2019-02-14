@@ -259,26 +259,23 @@ def addFeatureToCounts(counts,feature):
     if feature in counts: counts[feature] += 1
     else: counts[feature] = 1
 
-def text2liwc(words,prefixes,tokens):
+def text2liwc(features,words,prefixes,tokens):
     global numberId
 
     counts = { NBROFMATCHES:0 }
-    c = 1
     for token in tokens:
         if token in words:
             addFeatureToCounts(counts,NBROFMATCHES)
             for feature in words[token]: 
-                addFeatureToCounts(counts,feature)
-                if feature == "1": 
-                    c += 1
+                addFeatureToCounts(counts,features[feature])
         longestPrefix = findLongestPrefix(prefixes,token)
         if longestPrefix != "":
             addFeatureToCounts(counts,NBROFMATCHES)
             for feature in prefixes[longestPrefix]:
-                addFeatureToCounts(counts,feature)
-        if isNumber(token): 
+                addFeatureToCounts(counts,features[feature])
+        if isNumber(token) and not (token in words and numberId in words[token]):
             addFeatureToCounts(counts,NBROFMATCHES)
-            addFeatureToCounts(counts,numberId)
+            addFeatureToCounts(counts,features[numberId])
     return(counts)
 
 def readTextFromStdin():
@@ -317,14 +314,11 @@ def printAllResults(features,results):
 def emails2liwc(emails,features,words,prefixes):
     global headerPrinted
 
-    if not headerPrinted:
-        printHeader(features)
-        headerPrinted = True
     results = []
     for row in emails:
         text = row[MAILTITLEID]+" "+row[MAILBODYID]
         tokens,nbrOfSents = tokenize(text)
-        result = text2liwc(words,prefixes,tokens)
+        result = text2liwc(features,words,prefixes,tokens)
         result[NBROFTOKENS] = len(tokens)
         result[NBROFSENTS] = nbrOfSents
         result[SENDER] = row[SENDERID]
