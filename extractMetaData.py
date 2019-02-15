@@ -9,62 +9,80 @@
 import csv
 import sys
 
-FIELDCESD = "CESD"
+DATAFILE = "/home/erikt/projects/e-mental-health/usb/ovk/data/eriktks/spss/opve.csv"
+FIELDCESDIN = "CESD"
+FIELDCESDOUT = "cesd"
 FIELDMHC = "mhc"
-FIELDT0 = "t0"
-FIELDT1 = "t1"
-FIELDID = "onderzoeksnummer1"
+FIELDT0IN = "t0"
+FIELDT0OUT = "T0"
+FIELDT1IN = "t1"
+FIELDT1OUT = "T1"
+FIELDIDIN = "onderzoeksnummer1"
+FIELDIDOUT = "id"
+FIELDTIME = "timeframe"
 MAXCESD = 20
 MAXMHC = 14
-NONE = "NA"
+NA = "NA"
 SEPARATOR = ","
 MHCVALUES = { "nooit":0,
               "een of twee keer":1,
               "ongeveer een keer per week":2,
               "twee of drie keer per week":3,
               "bijna elke dag":4,
-              "elke dag":5,
-              "NA":"NA" }
+              "elke dag":5 }
 CESDVALUES = { "0":0, "1":1, "2":2, "3":3,
                "zelden of nooit (minder dan 1 dag)":0,
                "soms of weinig (1-2 dagen)":1,
                "regelmatig (3-4 dagen)":2,
                "meestal of altijd (5-7 dagen)":3 }
-HEADING = "id,time,cesd,mhc"
+# [ [FIELDCESDIN,4],[FIELDCESDIN,8],[FIELDCESDIN,12],[FIELDCESDIN,16] ]
+INVERTED = []
+OUTFIELDNAMES= [FIELDIDOUT,FIELDTIME,FIELDCESDOUT,FIELDMHC]
+
+def makeFieldName(prefix,suffix,i,addZero):
+    if addZero and i < 10: strI = "0" + str(i)
+    else: strI = str(i)
+    return(prefix + strI + "_" + suffix)
+
+def computeScore(convertor,dataValue,prefix):
+    if not prefix in INVERTED: return(convertor[dataValue])
+    else:
+        maxValue = max(convertor.values())
+        minValue = min(convertor.values())
+        return(maxValue+minValue-convertor[dataValue])
 
 def getFieldTotal(row,prefix,suffix,convertor,maxIndex,addZero):
-    total = NONE
+    total = 0
+    NAcount = 0
     for i in range(1,maxIndex+1):
-        if addZero and i < 10: strI = "0"+str(i)
-        else: strI = str(i)
-        fieldName = prefix+strI+"_"+suffix
-        if not row[fieldName] == "NA":
-            if total != NONE: total += convertor[row[fieldName]]
-            else: total = convertor[row[fieldName]]
-    return(total)
+        fieldName = makeFieldName(prefix,suffix,i,addZero)
+        if row[fieldName] == NA: NAcount += 1
+        else: total += computeScore(convertor,row[fieldName],[prefix,i])
+    if NAcount > 0: return(NA)
+    else: return(total)
 
-def doOutput(thisId,cesdTotalT0,cesdTotalT1,mhcTotalT0,mhcTotalT1):
-    outString = str(thisId)
-    outString += ","+str("T0")
-    outString += ","+str(cesdTotalT0)
-    outString += ","+str(mhcTotalT0)
-    print(outString)
-    outString = str(thisId)
-    outString += ","+str("T1")
-    outString += ","+str(cesdTotalT1)
-    outString += ","+str(mhcTotalT1)
-    print(outString)
-    return()
-    
+def readData(inFileName=DATAFILE):
+    try: inFile = open(inFileName,"r")
+    except Exception as e: sys.exit(COMMAND+": cannot read from file "+inFileName+" "+str(e))
+    csvreader = csv.DictReader(inFile,delimiter=SEPARATOR)
+    data = []
+    for row in csvreader: data.append(row)
+    inFile.close()
+    return(data)
+
 def main(argv):
-    csvReader = csv.DictReader(sys.stdin,delimiter=SEPARATOR)
-    print(HEADING)
-    for row in csvReader:
-        cesdTotalT0 = getFieldTotal(row,FIELDCESD,FIELDT0,CESDVALUES,MAXCESD,False)
-        cesdTotalT1 = getFieldTotal(row,FIELDCESD,FIELDT1,CESDVALUES,MAXCESD,False)
-        mhcTotalT0 = getFieldTotal(row,FIELDMHC,FIELDT0,MHCVALUES,MAXMHC,True)
-        mhcTotalT1 = getFieldTotal(row,FIELDMHC,FIELDT1,MHCVALUES,MAXMHC,True)
-        doOutput(row[FIELDID],cesdTotalT0,cesdTotalT1,mhcTotalT0,mhcTotalT1)
+    data = readData(DATAFILE)
+    csvwriter = csv.DictWriter(sys.stdout,delimiter=SEPARATOR,fieldnames=OUTFIELDNAMES)
+    csvwriter.writeheader()
+    for rowIn in data:
+        cesdTotalT0 = getFieldTotal(rowIn,FIELDCESDIN,FIELDT0IN,CESDVALUES,MAXCESD,False)
+        mhcTotalT0 = getFieldTotal(rowIn, FIELDMHC, FIELDT0IN, MHCVALUES, MAXMHC, True)
+        rowOut = { FIELDIDOUT: rowIn[FIELDIDIN],FIELDTIME:FIELDT0OUT,FIELDCESDOUT:cesdTotalT0,FIELDMHC:mhcTotalT0 }
+        csvwriter.writerow(rowOut)
+        cesdTotalT1 = getFieldTotal(rowIn,FIELDCESDIN,FIELDT1IN,CESDVALUES,MAXCESD,False)
+        mhcTotalT1 = getFieldTotal(rowIn, FIELDMHC, FIELDT1IN, MHCVALUES, MAXMHC, True)
+        rowOut = { FIELDIDOUT: rowIn[FIELDIDIN],FIELDTIME:FIELDT1OUT,FIELDCESDOUT:cesdTotalT1,FIELDMHC:mhcTotalT1 }
+        csvwriter.writerow(rowOut)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))

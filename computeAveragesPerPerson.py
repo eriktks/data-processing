@@ -17,8 +17,16 @@ FIELDNBROFSENTS = "nbrOfSents"
 FIELDNBROFTOKENSINSENTS = "nbrOfTokensInSents"
 FIELDNBROFWORDS = "nbrOfWords"
 FIELDSENDER = "sender"
-HEADING = "id,time,avgSentLen,avgWordLen"
-NONE = "NA"
+FIELDID = "id"
+FIELDTIMEFRAME = "timeframe"
+FIELDAVGSENTLENCLI = "avgSentLenCli"
+FIELDAVGWORDLENCLI = "avgWordLenCli"
+FIELDAVGSENTLENCOUNS = "avgSentLenCouns"
+FIELDAVGWORDLENCOUNS = "avgWordLenCouns"
+FIELDNAMES = [FIELDID,FIELDCOUNSELORID,FIELDTIMEFRAME,FIELDAVGSENTLENCLI,FIELDAVGWORDLENCLI,FIELDAVGSENTLENCOUNS,FIELDAVGWORDLENCOUNS]
+NA = "NA"
+T0 = "T0"
+T1 = "T1"
 SEPARATOR = ","
 START = "START"
 SUMMARYCOUNT = 3
@@ -35,7 +43,7 @@ def summarizeDataStart(countedElements,countedGroups):
         nbrOfElements += countedElements[counter]
         nbrOfGroups += countedGroups[counter]
         counter += 1
-    if nbrOfGroups <= 0: return(NONE)
+    if nbrOfGroups <= 0: return(NA)
     else: return(round(nbrOfElements/nbrOfGroups,1))
 
 def summarizeDataEnd(countedElements,countedGroups):
@@ -47,32 +55,39 @@ def summarizeDataEnd(countedElements,countedGroups):
             nbrOfElements += countedElements[-1-counter]
             nbrOfGroups += countedGroups[-1-counter]
             counter += 1
-    if nbrOfGroups <= 0: return(NONE)
+    if nbrOfGroups <= 0: return(NA)
     else: return(round(nbrOfElements/nbrOfGroups,1))
 
-def printData(data):
-    for person in sorted(data.keys()):
-        outLine = person
-        outLine += ",T0"
-        outLine += ","+str(summarizeDataStart(data[person][FIELDNBROFTOKENSINSENTS],data[person][FIELDNBROFSENTS]))
-        outLine += ","+str(summarizeDataStart(data[person][FIELDNBROFCHARSINWORDS],data[person][FIELDNBROFWORDS]))
-        print(outLine)
-        outLine = person
-        outLine += ",T1"
-        outLine += ","+str(summarizeDataEnd(data[person][FIELDNBROFTOKENSINSENTS],data[person][FIELDNBROFSENTS]))
-        outLine += ","+str(summarizeDataEnd(data[person][FIELDNBROFCHARSINWORDS],data[person][FIELDNBROFWORDS]))
-        print(outLine)
-    return()
+def makeData(dataIn):
+    dataOut = []
+    people = sorted(dataIn.keys())
+    if len(people) == 2:
+        client,counselor = people
+        data = { FIELDID:client,FIELDCOUNSELORID:counselor,FIELDTIMEFRAME:T0 }
+        data[FIELDAVGSENTLENCLI] = str(summarizeDataStart(dataIn[client][FIELDNBROFTOKENSINSENTS],dataIn[client][FIELDNBROFSENTS]))
+        data[FIELDAVGWORDLENCLI] = str(summarizeDataStart(dataIn[client][FIELDNBROFCHARSINWORDS],dataIn[client][FIELDNBROFWORDS]))
+        data[FIELDAVGSENTLENCOUNS] = str(summarizeDataStart(dataIn[counselor][FIELDNBROFTOKENSINSENTS],dataIn[counselor][FIELDNBROFSENTS]))
+        data[FIELDAVGWORDLENCOUNS] = str(summarizeDataStart(dataIn[counselor][FIELDNBROFCHARSINWORDS],dataIn[counselor][FIELDNBROFWORDS]))
+        dataOut.append(dict(data))
+        data = {FIELDID: client, FIELDCOUNSELORID: counselor, FIELDTIMEFRAME: T1}
+        data[FIELDAVGSENTLENCLI] = str(summarizeDataEnd(dataIn[client][FIELDNBROFTOKENSINSENTS], dataIn[client][FIELDNBROFSENTS]))
+        data[FIELDAVGWORDLENCLI] = str(summarizeDataEnd(dataIn[client][FIELDNBROFCHARSINWORDS], dataIn[client][FIELDNBROFWORDS]))
+        data[FIELDAVGSENTLENCOUNS] = str(summarizeDataEnd(dataIn[counselor][FIELDNBROFTOKENSINSENTS], dataIn[counselor][FIELDNBROFSENTS]))
+        data[FIELDAVGWORDLENCOUNS] = str(summarizeDataEnd(dataIn[counselor][FIELDNBROFCHARSINWORDS], dataIn[counselor][FIELDNBROFWORDS]))
+        dataOut.append(dict(data))
+    return(dataOut)
 
 def main(argv):
-    csvReader = csv.DictReader(sys.stdin,delimiter=SEPARATOR)
-    print(HEADING)
+    csvreader = csv.DictReader(sys.stdin,delimiter=SEPARATOR)
+    csvwriter = csv.DictWriter(sys.stdout, delimiter=SEPARATOR,fieldnames=FIELDNAMES,restval="NA",lineterminator="\n")
+    csvwriter.writeheader()
     data = {}
     clientid = ""
-    for row in csvReader:
+    printData = []
+    for row in csvreader:
         if clientid != row[FIELDCLIENTID]:
             if clientid != "":
-                printData(data)
+                printData.extend(makeData(data))
                 data = {}
             clientid = row[FIELDCLIENTID]
         if row[FIELDSENDER] == CLIENT: person = row[FIELDCLIENTID]
@@ -80,7 +95,8 @@ def main(argv):
         if person not in data: data[person] = initializeDataField()
         for field in [FIELDNBROFWORDS,FIELDNBROFCHARSINWORDS,FIELDNBROFSENTS,FIELDNBROFTOKENSINSENTS]:
             data[person][field].append(int(row[field]))
-    if clientid != "": printData(data)
+    if clientid != "": printData.extend(makeData(data))
+    for pd in printData: csvwriter.writerow(pd)
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
