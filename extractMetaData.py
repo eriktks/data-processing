@@ -35,8 +35,7 @@ CESDVALUES = { "0":0, "1":1, "2":2, "3":3,
                "soms of weinig (1-2 dagen)":1,
                "regelmatig (3-4 dagen)":2,
                "meestal of altijd (5-7 dagen)":3 }
-# [ [FIELDCESDIN,4],[FIELDCESDIN,8],[FIELDCESDIN,12],[FIELDCESDIN,16] ]
-INVERTED = []
+INVERTED = [ [FIELDCESDIN,4],[FIELDCESDIN,8],[FIELDCESDIN,12],[FIELDCESDIN,16] ]
 OUTFIELDNAMES= [FIELDIDOUT,FIELDTIME,FIELDCESDOUT,FIELDMHC]
 
 def makeFieldName(prefix,suffix,i,addZero):

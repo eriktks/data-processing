@@ -8,8 +8,8 @@
 import unittest
 import extractMetaData as emd
 
-CESDTOTALT0 = 15
-CESDTOTALT1 = 21
+CESDTOTALT0 = 13
+CESDTOTALT1 = 15
 MHCTOTALT0 = 42
 MHCTOTALT1 = 28
 
