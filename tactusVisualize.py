@@ -211,9 +211,9 @@ FEATURE = "FEATURE"
 MAIL = "MAIL"
 NBROFMATCHES ="NBROFMATCHES"
 
-def summarizeDataFeature(data,featureName):
+def summarizeDataFeature(data,featureName,target):
     return({i+1:float(data[i][featureName])/float(data[i][NBROFTOKENS]) \
-            for i in range(0,len(data)) if featureName in data[i]})
+            for i in range(0,len(data)) if featureName in data[i] and (target == None or data[i][SENDER] == target)})
 
 def summarizeDataMail(data,mailId):
     summary = {}
@@ -231,20 +231,21 @@ def summarizeDataMail(data,mailId):
                         float(row[featureName])/float(row[NBROFTOKENS])
     return(summary)
 
-def summarizeData(data):
+def summarizeData(data,target):
     summary = {}
     for row in data:
-        for featureName in row:
-            if row[featureName].isdigit():
-                if featureName in summary: 
-                    summary[featureName] += int(row[featureName])
-                else: 
-                    summary[featureName] = int(row[featureName])
-            else:
-                if featureName in summary: 
-                    summary[featureName] += 1
-                else: 
-                    summary[featureName] = 1
+        if target == None or row[SENDER] == target:
+            for featureName in row:
+                if row[featureName].isdigit():
+                    if featureName in summary: 
+                        summary[featureName] += int(row[featureName])
+                    else: 
+                        summary[featureName] = int(row[featureName])
+                else:
+                    if featureName in summary: 
+                        summary[featureName] += 1
+                    else: 
+                        summary[featureName] = 1
     return(summary)
 
 def printSummary(data,summary,type=DATA):
@@ -255,7 +256,7 @@ def printSummary(data,summary,type=DATA):
         featureName,frequency = element
         if frequency > 0.0:
             if featureName in (NBROFTOKENS,NBROFSENTS) or \
-                not data[0][featureName].isdigit(): print("      "+featureName)
+               (featureName in data[0] and not data[0][featureName].isdigit()): print("      "+featureName)
             elif type != DATA: print("%5.2f%% %s" % (100.0*frequency,featureName))
             else: print("%5d %s (%0.2f%%)" % \
                     (frequency,featureName,
@@ -267,18 +268,18 @@ def printSummary(data,summary,type=DATA):
             print(" "+featureName,end="")
     print("\n",end="")
 
-def summarizeFeature(file,feature,target=CLIENT):
+def summarizeFeature(file,feature,target=None):
     data = readData(file)
-    summary = summarizeDataFeature(data,feature)
+    summary = summarizeDataFeature(data,feature,target)
     printSummary(data,summary,FEATURE)        
 
-def summarizeMail(file,mail,target=CLIENT):
+def summarizeMail(file,mail):
     data = readData(file)
-    summary = summarizeDataMail(data,mail-1)
+    summary = summarizeDataMail(data,mail-1,target)
     printSummary(data,summary,MAIL)
 
-def summarize(file,target=CLIENT):
+def summarize(file,target=None):
     data = readData(file)
-    summary = summarizeData(data)
+    summary = summarizeData(data,target)
     printSummary(data,summary)
 
