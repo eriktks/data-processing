@@ -12,6 +12,11 @@ CESDTOTALT0 = 13
 CESDTOTALT1 = 15
 MHCTOTALT0 = 42
 MHCTOTALT1 = 28
+GENDER = "GeslachtA"
+BIRTHDATE = "geboortedatumA"
+FINISHED = "Cursusafgerond"
+AGEGROUP = "agegroup2_t0"
+AGE = "Leeftijd_t0"
 
 class myTest(unittest.TestCase):
     def testExtractMetaData(self):

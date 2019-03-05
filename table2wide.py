@@ -11,7 +11,7 @@ import sys
 
 ID = "id"
 EMPTYDICT = {}
-KEEP = [ID,"treatment","counselor"]
+KEEP = [ID,"treatment","counselor","GeslachtA","Leeftijd_t0","agegroup2_t0","Cursusafgerond"]
 SEPARATOR = ","
 TIME = "timeframe"
 TIMES = ["T0","T1"]
