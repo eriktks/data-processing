@@ -5,11 +5,11 @@
     20181015 erikt(at)xs4all.nl
 """
 
+import html
 import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
-from xml.etree.ElementTree import parse
 
 COMMAND = sys.argv.pop(0)
 BINDIR = "/home/erikt/projects/e-mental-health/data-processing"
@@ -23,54 +23,53 @@ def makeId(fileName):
     return(re.sub(r"^(.*/)?(.*)\.xml$","\g<2>",fileName))
 
 def getRootOfFile(inFileName):
-    tree = ET.parse(inFileName)
-    return(tree.getroot())
+    return(ET.parse(inFileName))
 
 def getTextId(text):
     global clearedStringIds
 
     text = text.lower()
     if not text in clearedStringIds:
-        clearedStringIds[text] = len(clearedStringIds.keys())
+        clearedStringIds[text] = str(len(clearedStringIds.keys()))
     return(clearedStringIds[text])
 
-def clearTexts(root,tagNames):
-    for tagname in tagNames:
+def clearTexts(tree,tagNames):
+    root = tree.getroot()
+    for tagName in tagNames:
         for tag in root.findall(".//"+tagName):
             tag.text = CLEARTOKEN+"-"+getTextId(tag.text)
 
-def getTextFromXmltext(text):
-    textTree = ET.fromstring("<container>"+text+"</container>")
-    if textTree.text != None: text = textTree.text
+def getTextFromXmlText(text):
+    try: textTree = ET.fromstring("<container>"+text+"</container>")
+    except Exception as e: sys.exit("Error processing text "+text+": "+str(e))
+    if not textTree.text is None: text = textTree.text
     else: text = ""
     for node in textTree.findall(".//"):
-        if node.text != None: text += " "+node.text
+        if not node.text is None: text += " "+node.text
     return(text)
 
-def anonymizeTexts(root,tagNames):
-    for tagName in tagNames:
-        for tag in root.findall(".//"+tagName):
-            if tag.text != None:
-                text = getTextFromXmlText(tag.text)
-
+def anonymizeTexts(tree,tagNames):
+    root = tree.getroot()
+    for tag in root.iter():
+        if not tag.text is None:
+            if tag.tag in tagNames:
+                text = getTextFromXmlText(html.escape(tag.text))
                 tmpFile = open("tmpFile","w")
                 print(text,file=tmpFile)
                 tmpFile.close()
                 anonymizeProcess = subprocess.run([BINDIR+"/anonymize-eng.sh","tmpFile"],stdout=subprocess.PIPE)
                 anonymizedText = dict(anonymizeProcess.__dict__)["stdout"]
                 tag.text = anonymizedText.decode("utf8")
+            tag.text = html.unescape(tag.text)
 
 def writeFile(tree,outFileName):
-    tree.write(outFileName)
-
+    tree.write(outFileName,encoding="utf8")
 
 def main(argv):
-    clearedStrings = {}
-    for inFileName in sys.argv:
-        thisId = makeId(inFileName)
-        root = getRootFromFile(inFileName)
-        clearTexts(root,CLEARTAGS)
-        anonymizeTexts(root,ANONYMIZETAGS)
+    for inFileName in argv:
+        tree = getRootOfFile(inFileName)
+        clearTexts(tree,CLEARTAGS)
+        anonymizeTexts(tree,ANONYMIZETAGS)
         writeFile(tree,inFileName+".an")
     return(0)
 
