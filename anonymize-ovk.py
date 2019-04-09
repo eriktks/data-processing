@@ -82,7 +82,7 @@ def compressNE(tokens):
             while i < len(tokens)-1 and tokens[i+1] == tokens[i]: 
                 tokens = removeFromList(tokens,i)
             if tokens[i] == MONTH or tokens[i] == DATE:
-                if i < len(tokens) and tokens[i+1] in [NUM]: 
+                if i < len(tokens)-1 and tokens[i+1] in [NUM]: 
                     removeFromList(tokens,i+1)
                 tokens[i] = DATE
                 if i > 0 and tokens[i-1] in [DAY,NUM]: 
@@ -216,7 +216,7 @@ def main(argv):
     while len(tokens) > 0:
         print(anonymize(tokens,pos,ner,options))
         tokens,pos,ner = readSentence()
-    if "-n" in options: storeNewNames()
+    storeNewNames()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
