@@ -13,7 +13,8 @@ import xml.etree.ElementTree as ET
 
 COMMAND = sys.argv.pop(0)
 BINDIR = "/home/erikt/projects/e-mental-health/data-processing"
-ANONYMIZETAGS = ["Body","Notes"]
+ANONYMIZEPRG = "anonymize-dut.sh"
+ANONYMIZETAGS = ["Body","Subject", "Notes"]
 CLEARTAGS = ["Username","FirstName","LastName","Email","Sender","Recipients"]
 CLEARTOKEN = "PERSON"
 
@@ -28,6 +29,7 @@ def getRootOfFile(inFileName):
 def getTextId(text):
     global clearedStringIds
 
+    if text is None: text = ""
     text = text.lower()
     if not text in clearedStringIds:
         clearedStringIds[text] = str(len(clearedStringIds.keys()))
@@ -57,7 +59,7 @@ def anonymizeTexts(tree,tagNames):
                 tmpFile = open("tmpFile","w")
                 print(text,file=tmpFile)
                 tmpFile.close()
-                anonymizeProcess = subprocess.run([BINDIR+"/anonymize-eng.sh","tmpFile"],stdout=subprocess.PIPE)
+                anonymizeProcess = subprocess.run([BINDIR+"/"+ANONYMIZEPRG,"tmpFile"],stdout=subprocess.PIPE)
                 anonymizedText = dict(anonymizeProcess.__dict__)["stdout"]
                 tag.text = anonymizedText.decode("utf8")
             tag.text = html.unescape(tag.text)
