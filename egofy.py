@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
     egofy.py: change Dutch biographic text to autobiographic text
-    usage: egofy.py [-t file.txt ] [-p file.txt.pos] [-s]
+    usage: egofy.py [-t file.txt ] [-p file.txt.pos] [-n name] [-s]
     notes: 
     * requires frog running and listening on localhost port 8080 (for -t)
     * frog requires tokenization, multiword units, pos and ner; skip lac
     * option -s saves linguistic analysis
+    * option -n can be repeated several times
     20190111 erikt(at)xs4all.nl
 """
 
@@ -15,7 +16,7 @@ import re
 import sys
 
 COMMAND = sys.argv.pop(0)
-USAGE = "usage: "+COMMAND+" [-t file.txt] [-p file.txt.pos] [-s]"
+USAGE = "usage: "+COMMAND+" [-t file.txt] [-p file.txt.pos] [-n name] [-s]"
 HOST = "localhost"
 FEMALE = "fem"
 MALE = "masc"
@@ -35,6 +36,8 @@ NOFROGCONTACTMSG = "no Frog found on port "+str(PORT)+"! is it running?"
 NOFROGOUTPUTMSG = "no data received from Frog! is it running?"
 UNKNOWN = "UNKNOWN"
 INFILENAME = "input.txt"
+COMPLETE = "COMPLETE"
+PARTIAL = "PARTIAL"
 
 def error(string):
     sys.exit(COMMAND+": error: "+string)
@@ -141,66 +144,85 @@ def nameMatch(targetNames,sourceNames,suffix=""):
                 return(True)
     return(False)
 
-def egofy(processedText,name,gender):
+def matchTokenToNames(paragraph,start,names):
+    if not paragraph[start][TOKEN] in names: return(paragraph[start][TOKEN],start,start)
+    end = start
+    token = paragraph[start][TOKEN]
+    while end+1 < len(paragraph) and token+" "+paragraph[end+1][TOKEN] in names:
+        end += 1
+        token += " "+paragraph[end][TOKEN]
+    while token !="" and names[token] != COMPLETE:
+        token = re.sub("\s*\S*","",token)
+        end -= 1
+    if token == "": return(paragraph[start][TOKEN],start,start)
+    else: return(token,start,end)
+
+def egofy(processedText,names,gender):
     text = ""
     textInitial = True
     for paragraph in processedText:
         sentenceInitial = True
         lastPOS = ""
-        for tokenData in paragraph:
-            if tokenData[TOKEN] == None:
-                if not sentenceInitial:
-                    text += "\n"
-                    sentenceInitial = True
-                    lastPOS = ""
-            else:
-                token = re.sub(r"_"," ",tokenData[TOKEN])
-                if not textInitial and \
-                   re.search(r"-PER",tokenData[NE]) and \
-                   not re.search(r"^VZ[^_]*$",tokenData[POS]) and \
-                   nameMatch([token],[name]):
-                       if re.search(r"VZ",lastPOS): 
-                           text += METOKEN[sentenceInitial]+" "
-                       else: 
-                           text += ITOKEN[sentenceInitial]+" "
-                elif not tokenData[NE] == "O" and \
-                     (nameMatch([token],[name],"s") or \
-                      nameMatch([token],[name],"'s")):
-                    text += POSSESSIVE[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"pers",tokenData[POS]) and \
-                     (re.search(r"nomin",tokenData[POS]) or \
-                      re.search(r"stan",tokenData[POS])) and \
-                     re.search(gender,tokenData[POS]):
-                    text += ITOKEN[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"pers",tokenData[POS]) and \
-                     re.search(r"mv",tokenData[POS]):
-                    text += WETOKEN[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"pers",tokenData[POS]) and \
-                     re.search(r"obl",tokenData[POS]) and \
-                     re.search(gender,tokenData[POS]):
-                    text += METOKEN[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"refl",tokenData[POS]) and \
-                     re.search(r"ndr",tokenData[POS]):
-                    text += REFLEXIVE[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"bez",tokenData[POS]) and \
-                     token.lower() in POSSESSIVETOKENS[gender]:
-                    text += POSSESSIVE[sentenceInitial]+" "
-                elif re.search(r"^VNW",tokenData[POS]) and \
-                     re.search(r"bez",tokenData[POS]) and \
-                     re.search(r"mv",tokenData[POS]) and \
-                     re.search(r"3",tokenData[POS]):
-                    text += OURTOKEN[sentenceInitial]+" "
+        i = 0
+        if textInitial: 
+            for token in paragraph: 
+                print(token[TOKEN],end=" ")
+            print()
+        else:
+            while i < len(paragraph):
+                if paragraph[i][TOKEN] == None:
+                    if not sentenceInitial:
+                        text += "\n"
+                        sentenceInitial = True
+                        lastPOS = ""
                 else:
-                    text += token+" "
-                lastPOS = tokenData[POS]
-                sentenceInitial = False
-            textInitial = False
-        text += "\n"
+                    token,start,end = matchTokenToNames(paragraph,i,names)
+                    token = re.sub(r"_"," ",paragraph[i][TOKEN])
+                    if token in names and names[token] == COMPLETE:
+                        if re.search(r"VZ",lastPOS): 
+                            text += METOKEN[sentenceInitial]+" "
+                        else: 
+                            text += ITOKEN[sentenceInitial]+" "
+                        for j in range(start+1,end+1): paragraph.pop(start+1)
+                    elif not paragraph[i][NE] == "O" and \
+                         (nameMatch([token],names,"s") or \
+                          nameMatch([token],names,"'s")):
+                        text += POSSESSIVE[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"pers",paragraph[i][POS]) and \
+                         (re.search(r"nomin",paragraph[i][POS]) or \
+                          re.search(r"stan",paragraph[i][POS])) and \
+                         re.search(gender,paragraph[i][POS]):
+                        text += ITOKEN[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"pers",paragraph[i][POS]) and \
+                         re.search(r"mv",paragraph[i][POS]):
+                        text += WETOKEN[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"pers",paragraph[i][POS]) and \
+                         re.search(r"obl",paragraph[i][POS]) and \
+                         re.search(gender,paragraph[i][POS]):
+                        text += METOKEN[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"refl",paragraph[i][POS]) and \
+                         re.search(r"ndr",paragraph[i][POS]):
+                        text += REFLEXIVE[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"bez",paragraph[i][POS]) and \
+                         token.lower() in POSSESSIVETOKENS[gender]:
+                        text += POSSESSIVE[sentenceInitial]+" "
+                    elif re.search(r"^VNW",paragraph[i][POS]) and \
+                         re.search(r"bez",paragraph[i][POS]) and \
+                         re.search(r"mv",paragraph[i][POS]) and \
+                         re.search(r"3",paragraph[i][POS]):
+                        text += OURTOKEN[sentenceInitial]+" "
+                    else:
+                        text += token+" "
+                    lastPOS = paragraph[i][POS]
+                    sentenceInitial = False
+                i += 1
+            text += "\n"
+        textInitial = False
     return(text)
 
 def readFile(inFileName):
@@ -212,15 +234,25 @@ def readFile(inFileName):
     except Exception as e: sys.exit(COMMAND+": "+str(e))
     return(text)
 
+def extendNameDict(names,name):
+    names[name] = COMPLETE
+    while True:
+        name = re.sub(r"\s*\S*$",r"",name)
+        if name == "": break
+        if not name in names: names[name] = PARTIAL
+    return(names)
+
 def processOptions(argv):
     try:
-        optionList, files = getopt.getopt(argv,"p:t:s",[])
+        names = {}
+        optionList, files = getopt.getopt(argv,"n:p:t:s",[])
         options = {}
         for option, arg in optionList:
-            if option == "-t" or option == "-p": options[option] = arg
+            if option == "-n": names = extendNameDict(names,arg)
+            elif option == "-t" or option == "-p": options[option] = arg
             elif option == "-s": options[option] = True
             else: sys.exit(USAGE)
-        return(options)
+        return(options,files,names)
     except Exception as e: error(USAGE+" "+str(e))
 
 def convertNones(valueList):
@@ -257,15 +289,15 @@ def savePosFile(processedOptions,outFileName):
     outFile.close()
 
 def main(argv):
-    options = processOptions(argv)
+    options,files,names = processOptions(argv)
     if "-p" in options: processedText = readPosFile(options["-p"])
     elif "-t" in options: processedText = processTextWithFrog(options["-t"])
     else: sys.exit(USAGE)
     if "-s" in options and "-t" in options: savePosFile(processedText,options["-t"])
     if len(processedText) > 0:
         gender = guessGender(processedText)
-        name = guessName(processedText)
-        text = egofy(processedText,name,gender)
+        if len(names) == 0: names = [guessName(processedText)]
+        text = egofy(processedText,names,gender)
         print(text)
 
 if __name__ == "__main__":
