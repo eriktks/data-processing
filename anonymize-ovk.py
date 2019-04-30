@@ -131,7 +131,8 @@ def anonymize(tokens,pos,ner,options):
             if tokens[i] in names.keys():
                 if names[tokens[i]] != NEOTHER: 
                     tokens[i] = names[tokens[i]]
-            elif pos[i] == TAGNUM or re.search(r"^\d",tokens[i]): 
+            elif pos[i] == TAGNUM or re.search(r"^\d+$",tokens[i]) or \
+               re.search(r"^-\d+$",tokens[i]) or re.search(r"^\d+\.\d+$",tokens[i]): 
                 tokens[i] = NUM
             elif tokens[i] in MONTHS:
                 tokens[i] = MONTH
@@ -147,13 +148,23 @@ def anonymize(tokens,pos,ner,options):
                 tokens[i] = ner[i]
             tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
             tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
+    for i in range(0,len(tokens)):
+        if tokens[i] == "PER" and \
+            (re.search(r"^[Vv][Aa][Nn]$",formerTokens[i]) and
+             re.search(r"^[Dd][Ee]$",formerTokens[i])):
+            if i+1 == len(tokens): tokens[i] = formerTokens[i]
+            elif tokens[i+1] == "LOC": tokens[i+1] = PER
+            elif tokens[i+1] != "PER": tokens[i] = formerTokens[i]
+        if tokens[i] == "PRO" or tokens[i] == "EVE": 
+            tokens[i] = formerTokens[i]
     if "-l" in options:
         tokens = compressNElist(tokens)
         line = ""
         for i in range(0,len(tokens)):
             partsT = tokens[i].split("_")
             partsF = formerTokens[i].split("_")
-            for j in range(0,len(partsT)): line += partsF[j]+"\t"+partsT[j]+"\n"
+            for j in range(0,len(partsT)): 
+                line += partsF[j]+"\t"+partsT[j]+"\n"
     else:
         tokens = compressNE(tokens)
         line = " ".join(tokens)
@@ -170,7 +181,8 @@ def readKnownNames():
             except: sys.exit(COMMAND+": unexpected line in name file: "+line)
             names[token] = ner
         inFile.close()
-    except Exception as e: warn("cannot read new entities from file "+NAMEFILE+": "+str(e))
+    except Exception as e: 
+        print("cannot read new entities from file "+NAMEFILE+": "+str(e),file=sys.stderr)
     return(names,{})
 
 def posTag2base(posTag):
@@ -216,7 +228,7 @@ def main(argv):
     while len(tokens) > 0:
         print(anonymize(tokens,pos,ner,options))
         tokens,pos,ner = readSentence()
-    storeNewNames()
+    if "-n" in options: storeNewNames()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
