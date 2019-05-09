@@ -19,6 +19,7 @@ SENDER = "Sender"
 MAILID = "mailId"
 DAAP = "daap"
 DIARY = "DIARY"
+LINEWIDTH = 0.2
 
 clientDatesList = []
 
@@ -173,13 +174,31 @@ def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,diaries=Tr
     featureDataList = selectData(data,features)
     makePlotDates(featureDataList,features,format,barwidth,dates,senders)
 
-def makePlotDAAP(data,index=-1,user=""):
+def convertToAverages(values):
+    startI = 0
+    startId = int(values[0][MAILID])
+    totalDAAP = 0.0
+    for i in range(0,len(values)):
+        if int(values[i][MAILID]) == startId: 
+            totalDAAP += float(values[i][DAAP])
+        else:
+            for j in range(startI,i): values[j][DAAP] = totalDAAP/(i-startI)
+            startI = i
+            startId = int(values[i][MAILID])
+            totalDAAP = float(values[i][DAAP])
+    for j in range(startI,len(values)): 
+        values[j][DAAP] = totalDAAP/(len(values)-startI)
+    return(values)
+
+def makePlotDAAP(data,index=-1,user="",average=False):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
     if user == "CLIENT" or user == "COUNSELOR": 
         values = [ x for x in data if x[SENDER] == user ]
     else: 
         values = [ x for x in data if x[MAILID] == index ]
     if len(values) > 0:
+        if average: 
+            values = convertToAverages(values)
         nbrOfTokens = len(values)
         target = values[0][SENDER]
         if int(index) >= 0: 
@@ -192,24 +211,31 @@ def makePlotDAAP(data,index=-1,user=""):
         lastMailId = values[0][MAILID]
         for i in range(1,len(values)):
             if values[i][MAILID] != lastMailId:
-                plt.plot([i,i],[-0.05,0.05],color="black")
+                plt.plot([i,i],[-0.05,0.05],color="black",linewidth=LINEWIDTH)
                 lastMailId = values[i][MAILID]
     else:
         plt.title("Empty data set")
     plt.savefig(IMAGEFILE)
     plt.show()
     
-def visualizeDAAP(file):
+def visualizeDAAP(file,user="",mail=-1,average=False):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
-    makePlotDAAP(data,user="CLIENT")
-    makePlotDAAP(data,user="COUNSELOR")
-    seen = {}
-    for dataItem in data:
-        index = dataItem[MAILID]
-        if not index in seen:
-            makePlotDAAP(data,index=index)
-            seen[index] = True
+    if user == CLIENT:
+        makePlotDAAP(data,user=CLIENT,average=average)
+        makePlotDAAP(data,user=COUNSELOR,average=average)
+    elif user == COUNSELOR:
+        makePlotDAAP(data,user=CLIENT,average=average)
+        makePlotDAAP(data,user=COUNSELOR,average=average)
+    elif mail >= 1:
+        makePlotDAAP(data,index=str(mail-1))
+    else:
+        seen = {}
+        for dataItem in data:
+            index = dataItem[MAILID]
+            if not index in seen:
+                makePlotDAAP(data,index=index,average=average)
+                seen[index] = True
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
