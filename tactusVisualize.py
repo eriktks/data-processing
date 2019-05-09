@@ -13,6 +13,7 @@ import csv
 CLIENT = "CLIENT"
 COUNSELOR = "COUNSELOR"
 DATE = "DATE"
+INDEX = "INDEX"
 NBROFSENTS = "NBROFSENTS"
 NBROFTOKENS = "NBROFTOKENS"
 SENDER = "Sender"
@@ -20,6 +21,7 @@ MAILID = "mailId"
 DAAP = "daap"
 DIARY = "DIARY"
 LINEWIDTH = 0.2
+LINEMAX = 0.05
 
 clientDatesList = []
 
@@ -174,68 +176,115 @@ def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,diaries=Tr
     featureDataList = selectData(data,features)
     makePlotDates(featureDataList,features,format,barwidth,dates,senders)
 
-def convertToAverages(values):
+def convertToAverages(valuesIn,equalwidth=False):
     startI = 0
-    startId = int(values[0][MAILID])
+    startId = int(valuesIn[0][MAILID])
     totalDAAP = 0.0
-    for i in range(0,len(values)):
-        if int(values[i][MAILID]) == startId: 
-            totalDAAP += float(values[i][DAAP])
+    valuesOut = []
+    for i in range(0,len(valuesIn)):
+        if int(valuesIn[i][MAILID]) == startId: 
+            totalDAAP += float(valuesIn[i][DAAP])
         else:
-            for j in range(startI,i): values[j][DAAP] = totalDAAP/(i-startI)
+            if equalwidth:
+                valuesOut.append(valuesIn[i])
+                valuesOut[-1][DAAP] = totalDAAP/(i-startI)
+            else:
+                for j in range(startI,i):
+                    valuesOut.append(valuesIn[j])
+                    valuesOut[-1][DAAP] = totalDAAP/(i-startI)
             startI = i
-            startId = int(values[i][MAILID])
-            totalDAAP = float(values[i][DAAP])
-    for j in range(startI,len(values)): 
-        values[j][DAAP] = totalDAAP/(len(values)-startI)
-    return(values)
+            startId = int(valuesIn[i][MAILID])
+            totalDAAP = float(valuesIn[i][DAAP])
+    if equalwidth:
+        valuesOut.append(valuesIn[i])
+        valuesOut[-1][DAAP] = totalDAAP/(i-startI)
+    else:
+        for j in range(startI,len(valuesIn)): 
+            valuesOut.append(valuesIn[j])
+            valuesOut[-1][DAAP] = totalDAAP/(len(valuesIn)-startI)
+    return(valuesOut)
 
-def makePlotDAAP(data,index=-1,user="",average=False):
+def makePlotDAAP(fileName,data,index=-1,user="",average=False,linemax=LINEMAX,equalwidth=False):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
     if user == "CLIENT" or user == "COUNSELOR": 
         values = [ x for x in data if x[SENDER] == user ]
     else: 
         values = [ x for x in data if x[MAILID] == index ]
+    if equalwidth: token = "mail"
+    else: token = "token"
     if len(values) > 0:
         if average: 
-            values = convertToAverages(values)
+            values = convertToAverages(values,equalwidth=equalwidth)
         nbrOfTokens = len(values)
         target = values[0][SENDER]
         if int(index) >= 0: 
             mailId = values[0][MAILID]
             date = values[0][DATE]
-            plt.title("Mail "+str(int(mailId)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+            print("Date mail "+str(int(mailId)+1)+" is "+date)
+            plt.title("File: "+fileName+"; Mail "+str(int(mailId)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" "+token+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
         else:
-            plt.title("Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+            plt.title("File: "+fileName+"; Sender: "+target+"; "+str(nbrOfTokens)+" "+token+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
         plt.plot(range(0,len(values)),[float(x[DAAP]) for x in values])
         lastMailId = values[0][MAILID]
+        counter = 0
+        if equalwidth: plt.plot([0.5,0.5],[-linemax,linemax],color="black",linewidth=LINEWIDTH)
         for i in range(1,len(values)):
             if values[i][MAILID] != lastMailId:
-                plt.plot([i,i],[-0.05,0.05],color="black",linewidth=LINEWIDTH)
+                counter += 1
+                if not equalwidth:
+                    plt.plot([i,i],[-linemax,linemax],color="black",linewidth=LINEWIDTH)
+                else:
+                    x = float(counter)+0.5
+                    plt.plot([x,x],[-linemax,linemax],color="black",linewidth=LINEWIDTH)
                 lastMailId = values[i][MAILID]
     else:
         plt.title("Empty data set")
     plt.savefig(IMAGEFILE)
     plt.show()
-    
-def visualizeDAAP(file,user="",mail=-1,average=False):
+ 
+def visualizeDAAP(file,user="",mail=-1,average=False,linemax=LINEMAX,equalwidth=False):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
     if user == CLIENT:
-        makePlotDAAP(data,user=CLIENT,average=average)
-        makePlotDAAP(data,user=COUNSELOR,average=average)
+        makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
+        makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
     elif user == COUNSELOR:
-        makePlotDAAP(data,user=CLIENT,average=average)
-        makePlotDAAP(data,user=COUNSELOR,average=average)
+        makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
+        makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
     elif mail >= 1:
-        makePlotDAAP(data,index=str(mail-1))
+        makePlotDAAP(file,data,index=str(mail-1))
     else:
         seen = {}
         for dataItem in data:
             index = dataItem[MAILID]
             if not index in seen:
-                makePlotDAAP(data,index=index,average=average)
+                makePlotDAAP(file,data,index=index,average=average,linemax=linemax)
                 seen[index] = True
+
+def makePlotDAAPboth(fileName,data,bar=False):
+    plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
+    values = convertToAverages(data,equalwidth=True)
+    for i in range(0,len(values)): values[i][INDEX] = i
+    nbrOfMails = len(values)
+    client = [x for x in values if x[SENDER] == CLIENT ]
+    counselor = [x for x in values if x[SENDER] == COUNSELOR ]
+    plt.title("File: "+fileName+"; "+str(nbrOfMails)+" mail"+pluralTest(nbrOfMails)+"; Client: "+str(len(client))+"; Counselor: "+str(len(counselor)),fontdict={"fontweight":"bold"})
+    if bar:
+        minimum = min([float(x[DAAP]) for x in values])
+        barCl = plt.bar([x[INDEX] for x in client],[float(x[DAAP])-minimum+abs(0.2*minimum) for x in client],color="red")
+        barCo = plt.bar([x[INDEX] for x in counselor],[float(x[DAAP])-minimum+abs(0.2*minimum) for x in counselor],color="blue")
+        plt.yticks([])
+    else:
+        barCl, = plt.plot([x[INDEX] for x in client],[float(x[DAAP]) for x in client],color="red")
+        barCo, = plt.plot([x[INDEX] for x in counselor],[float(x[DAAP]) for x in counselor],color="blue")
+    plt.legend([barCl,barCo],["Client","Counselor"])
+    plt.savefig(IMAGEFILE)
+    plt.show()
+ 
+def visualizeDAAPboth(file,bar=False):
+    data = readData(file)
+    if len(data) == 0: sys.exit("no data found!")
+    makePlotDAAPboth(file,data,bar=bar)
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
