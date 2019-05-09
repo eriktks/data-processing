@@ -173,15 +173,27 @@ def visualize(file,features,format="",barwidth=BARWIDTH,target=CLIENT,diaries=Tr
     featureDataList = selectData(data,features)
     makePlotDates(featureDataList,features,format,barwidth,dates,senders)
 
-def makePlotDAAP(data,index):
+def makePlotDAAP(data,index=-1,user=""):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
-    values = [ x for x in data if x[MAILID] == index ]
+    if user == "CLIENT" or user == "COUNSELOR": 
+        values = [ x for x in data if x[SENDER] == user ]
+    else: 
+        values = [ x for x in data if x[MAILID] == index ]
     if len(values) > 0:
-        target = values[0][SENDER]
-        date = values[0][DATE]
         nbrOfTokens = len(values)
-        plt.title("Mail "+str(int(index)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+        target = values[0][SENDER]
+        if int(index) >= 0: 
+            mailId = values[0][MAILID]
+            date = values[0][DATE]
+            plt.title("Mail "+str(int(mailId)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
+        else:
+            plt.title("Sender: "+target+"; "+str(nbrOfTokens)+" token"+pluralTest(nbrOfTokens),fontdict={"fontweight":"bold"})
         plt.plot(range(0,len(values)),[float(x[DAAP]) for x in values])
+        lastMailId = values[0][MAILID]
+        for i in range(1,len(values)):
+            if values[i][MAILID] != lastMailId:
+                plt.plot([i,i],[-0.05,0.05],color="black")
+                lastMailId = values[i][MAILID]
     else:
         plt.title("Empty data set")
     plt.savefig(IMAGEFILE)
@@ -190,11 +202,13 @@ def makePlotDAAP(data,index):
 def visualizeDAAP(file):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
+    makePlotDAAP(data,user="CLIENT")
+    makePlotDAAP(data,user="COUNSELOR")
     seen = {}
     for dataItem in data:
         index = dataItem[MAILID]
         if not index in seen:
-            makePlotDAAP(data,index)
+            makePlotDAAP(data,index=index)
             seen[index] = True
 
 # The function summarize presents a list of feature names together 
