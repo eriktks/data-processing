@@ -242,24 +242,71 @@ def makePlotDAAP(fileName,data,index=-1,user="",average=False,linemax=LINEMAX,eq
     plt.savefig(IMAGEFILE)
     plt.show()
  
-def visualizeDAAP(file,user="",mail=-1,average=False,linemax=LINEMAX,equalwidth=False):
+def makeTableDAAP(fileName,data,index=-1,user="",average=False):
+    if user == "CLIENT" or user == "COUNSELOR": 
+        values = [ x for x in data if x[SENDER] == user ]
+    else: 
+        values = [ x for x in data if x[MAILID] == index ]
+    token = "token"
+    if len(values) > 0:
+        if average: 
+            values = convertToAverages(values)
+        maximum = max([float(x[DAAP]) for x in values])
+        nbrOfTokens = len(values)
+        target = values[0][SENDER]
+        if int(index) >= 0: 
+            mailId = values[0][MAILID]
+            date = values[0][DATE]
+            print("File: "+fileName+"; Mail "+str(int(mailId)+1)+" ("+date+"); Sender: "+target+"; "+str(nbrOfTokens)+" "+token+pluralTest(nbrOfTokens))
+        else:
+            print("File: "+fileName+"; Sender: "+target+"; "+str(nbrOfTokens)+" "+token+pluralTest(nbrOfTokens))
+        if not average:
+            print("mail token   score sender")
+            for i in range(0,len(values)):
+                if float(values[i][DAAP]) >= maximum: maxString = "maximum"
+                else: maxString = ""
+                print("{0:4d} {1:5d} {2:7.4f} {3:9s} {4:7s}".format(1+int(values[i][MAILID]),1+i,float(values[i][DAAP]),values[i][SENDER],maxString))
+        else:
+            print(" mail   score sender")
+            for i in range(0,len(values)):
+                if float(values[i][DAAP]) >= maximum: maxString = "maximum"
+                else: maxString = ""
+                if i == 0 or values[i][MAILID] != values[i-1][MAILID]:
+                    print("{0:4d} {1:7.4f} {2:9s} {3:7s}".format(1+int(values[i][MAILID]),float(values[i][DAAP]),values[i][SENDER],maxString))
+    else:
+        print("Empty data set")
+ 
+def visualizeDAAP(file,user="",mail=-1,average=False,linemax=LINEMAX,equalwidth=False,table=False):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
-    if user == CLIENT:
-        makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
-        makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
-    elif user == COUNSELOR:
-        makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
-        makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
-    elif mail >= 1:
-        makePlotDAAP(file,data,index=str(mail-1))
+    if table:
+        if user == CLIENT or user == COUNSELOR:
+            makeTableDAAP(file,data,user=user,average=average)
+        elif mail >= 1:
+            makeTableDAAP(file,data,index=str(mail-1))
+        else:
+            seen = {}
+            for dataItem in data:
+                index = dataItem[MAILID]
+                if not index in seen:
+                    makeTableDAAP(file,data,index=index,average=average)
+                    seen[index] = True
     else:
-        seen = {}
-        for dataItem in data:
-            index = dataItem[MAILID]
-            if not index in seen:
-                makePlotDAAP(file,data,index=index,average=average,linemax=linemax)
-                seen[index] = True
+        if user == CLIENT:
+            makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
+            makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
+        elif user == COUNSELOR:
+            makePlotDAAP(file,data,user=CLIENT,average=average,linemax=linemax,equalwidth=equalwidth)
+            makePlotDAAP(file,data,user=COUNSELOR,average=average,linemax=linemax,equalwidth=equalwidth)
+        elif mail >= 1:
+            makePlotDAAP(file,data,index=str(mail-1))
+        else:
+            seen = {}
+            for dataItem in data:
+                index = dataItem[MAILID]
+                if not index in seen:
+                    makePlotDAAP(file,data,index=index,average=average,linemax=linemax)
+                    seen[index] = True
 
 def makePlotDAAPboth(fileName,data,bar=False):
     plt.figure(figsize=(PLOTWIDTH,PLOTHEIGHT))
