@@ -9,6 +9,7 @@
 # reads the data.
 
 import csv
+import math
 
 CLIENT = "CLIENT"
 COUNSELOR = "COUNSELOR"
@@ -22,6 +23,13 @@ DAAP = "daap"
 DIARY = "DIARY"
 LINEWIDTH = 0.2
 LINEMAX = 0.05
+AVERAGE = "average"
+MAX = "max"
+MIN = "min"
+TOTAL = "total"
+TOTALDEV = "totaldev"
+COUNT = "count"
+SD = "sd"
 
 clientDatesList = []
 
@@ -332,6 +340,47 @@ def visualizeDAAPboth(file,bar=False):
     data = readData(file)
     if len(data) == 0: sys.exit("no data found!")
     makePlotDAAPboth(file,data,bar=bar)
+
+def computeStats(data):
+    stats = { CLIENT:{AVERAGE:0.0,COUNT:0,MAX:-1.0,MIN:1.0,SD:0.0,TOTAL:0.0,TOTALDEV:0.0},
+           COUNSELOR:{AVERAGE:0.0,COUNT:0,MAX:-1.0,MIN:1.0,SD:0.0,TOTAL:0.0,TOTALDEV:0.0} }
+    for d in data:
+        if SENDER in d and d[SENDER] in stats:
+            stats[d[SENDER]][COUNT] += 1
+            stats[d[SENDER]][TOTAL] += float(d[DAAP])
+            if float(d[DAAP]) < stats[d[SENDER]][MIN]: stats[d[SENDER]][MIN] = float(d[DAAP])
+            if float(d[DAAP]) > stats[d[SENDER]][MAX]: stats[d[SENDER]][MAX] = float(d[DAAP])
+        else: 
+            sys.exit("computeStats: unexpected data line: "+str(d))
+    for sender in [CLIENT,COUNSELOR]: 
+        if stats[sender][COUNT] == 0:
+            stats[sender][AVERAGE] = 0.0
+        else:
+            stats[sender][AVERAGE] = stats[sender][TOTAL]/stats[sender][COUNT]
+    for d in data:
+        if SENDER in d and d[SENDER] in stats:
+            stats[d[SENDER]][TOTALDEV] += math.pow(float(d[DAAP])-stats[d[SENDER]][AVERAGE],2)
+        else: 
+            sys.exit("computeStats: unexpected data line: "+str(d))
+    for sender in [CLIENT,COUNSELOR]:
+        if stats[sender][COUNT] == 0:
+            stats[sender][SD] = 0.0
+        else:
+            stats[sender][SD] = math.sqrt(stats[sender][TOTALDEV]/(stats[sender][COUNT]-1))
+    return(stats)
+
+def printStats(stats):
+    for sender in [CLIENT,COUNSELOR]:
+        print(sender)
+        print("{0:>7s} : {1}".format(COUNT,stats[sender][COUNT]))
+        for key in [AVERAGE,SD,MIN,MAX]:
+            print("{0:>7s} : {1:8.4f}".format(key,stats[sender][key]))
+
+def averageDAAP(file):
+    data = readData(file)
+    if len(data) == 0: sys.exit("no data found!")
+    stats = computeStats(data)
+    printStats(stats)
 
 # The function summarize presents a list of feature names together 
 # with their frequency. Thus we can observe which feature names are 
