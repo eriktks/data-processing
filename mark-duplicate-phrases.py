@@ -66,8 +66,9 @@ def markDuplicates(message,duplicateStarts,duplicateEnds,duplicateRefs):
 
 def convertMessages(fileName,messages):
     for key in sorted(messages.keys()):
-        duplicateStarts,duplicateEnds,duplicateRefs = countPhrases(fileName,messages[key])
-        markDuplicates(messages[key],duplicateStarts,duplicateEnds,duplicateRefs)
+        if messages[key].text != None:
+            duplicateStarts,duplicateEnds,duplicateRefs = countPhrases(fileName,messages[key])
+            markDuplicates(messages[key],duplicateStarts,duplicateEnds,duplicateRefs)
 
 def getMessages(root):
     messages = {}
