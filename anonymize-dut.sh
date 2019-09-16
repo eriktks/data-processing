@@ -8,6 +8,6 @@ INFILE="$1"
 
 source activate python
 python3 $BINDIR/ner-frog.py < $INFILE |\
-   python3 $BINDIR/anonymize-ovk.py
+   python3 $BINDIR/anonymize-ovk.py -n
 
 exit 0
