@@ -86,7 +86,7 @@ def anonymizeTexts(tree,tagNames):
             tag.text = re.sub(r"\n+\s*$","",tag.text)
 
 def writeFile(tree,outFileName):
-    tree.write(outFileName,encoding="utf8")
+    tree.write(outFileName,encoding="utf-8")
 
 def makeOutFileName(fileName):
     parts = fileName.split(".")
