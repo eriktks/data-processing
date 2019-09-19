@@ -21,6 +21,7 @@ CLEARTOKEN = "REMOVED"
 CLEAREDSTRINGIDS = {"client":"CLIENT"}
 OUTFILESUFFIX = "-an"
 TMPFILENAME = "tactus-anonymize.py."+str(os.getpid())
+BOUNDARY = "tactus-anonymize-py-mail-text-boundary"
 
 clearedStringIds = CLEAREDSTRINGIDS
 
@@ -75,15 +76,44 @@ def runAnonymizeProcess(inText):
     os.remove(TMPFILENAME)
     return(outText)
 
-def anonymizeTexts(tree,tagNames):
+def getMailTexts(tree,tagNames):
     root = tree.getroot()
+    textList = []
     for tag in root.iter():
         if not tag.text is None:
             if tag.tag in tagNames:
-                text = getTextFromXmlText(html.escape(tag.text))
-                tag.text = runAnonymizeProcess(text)
-            tag.text = html.unescape(tag.text)
-            tag.text = re.sub(r"\n+\s*$","",tag.text)
+                textList.append(getTextFromXmlText(html.escape(tag.text)))
+    return(textList)
+
+def processedTextToList(processedText):
+    processedList = []
+    currentText = ""
+    for line in processedText.split("\n"):
+        if not re.search("^"+BOUNDARY,line): currentText += line+"\n"
+        else:
+            processedList.append(str(currentText))
+            currentText = ""
+    processedList.append(str(currentText))
+    return(processedList)
+
+def updateMailTexts(tree,tagNames,processedList):
+    root = tree.getroot()
+    i = 0
+    for tag in root.iter():
+        if not tag.text is None:
+            if tag.tag in tagNames:
+                tag.text = processedList[i]
+                i += 1
+                tag.text = html.unescape(tag.text)
+                tag.text = re.sub(r"\n+\s*$","",tag.text)
+
+def anonymizeTexts(tree,tagNames):
+    textList = getMailTexts(tree,tagNames)
+    if len(textList) > 0:
+        text = (BOUNDARY+"\n").join(textList)
+        processedText = runAnonymizeProcess(text)
+        processedList = processedTextToList(processedText)
+        updateMailTexts(tree,tagNames,processedList)
 
 def writeFile(tree,outFileName):
     tree.write(outFileName,encoding="utf-8")
