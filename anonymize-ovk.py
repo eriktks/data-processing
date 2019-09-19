@@ -26,11 +26,13 @@ DATE = "DATE"
 MONTH = "MONTH"
 MAIL = "MAIL"
 MISC = "MISC"
-NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL,MISC}
+EVE = "EVE"
+PRO = "PRO"
+NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL,MISC,EVE,PRO}
 TAGNUM = "TW"
 DOMAINS = "(com|net|nl|org)"
 SKIP = { "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" }
-NAMEWORDS = [ "van","de","der","des","vande","vander","Van","De","Vande","Vander" ]
+NAMEWORDS = [ "van","de","der","des","vande","vander","ten" ]
 MONTHS = [ "januari","februari","maart","april","mei","juni","juli", \
            "augustus","september","oktober","november","december", \
            "Januari","Februari","Maart","April","Mei","Juni","Juli", \
@@ -72,51 +74,43 @@ def storeNewNames():
         except Exception as e: warn("cannot save new entities in file "+NAMEFILE+": "+str(e))
     return()
 
-def removeFromList(list,element):
-    return(list[0:element]+list[element+1:])
+def removeFromList(thisList,index):
+    if index < len(thisList): thisList.pop(index)
 
 def compressNE(tokens):
     i = 0
-    while i < len(tokens):
+    while i >= 0 and i < len(tokens):
+        removedTokens = 0
         if tokens[i] in NETAGS:
-            while i < len(tokens)-1 and tokens[i+1] == tokens[i]: 
-                tokens = removeFromList(tokens,i)
-            if tokens[i] == MONTH or tokens[i] == DATE:
-                if i < len(tokens)-1 and tokens[i+1] in [NUM]: 
+            if tokens[i] in [MONTH,DATE,DAY]:
+                if i < len(tokens)-1 and tokens[i+1] in [NUM,MONTH,DATE,DAY]: 
                     removeFromList(tokens,i+1)
+                    removedTokens += 1
                 tokens[i] = DATE
-                if i > 0 and tokens[i-1] in [DAY,NUM]: 
+                if i < len(tokens) and i > 0 and tokens[i-1] in [DAY,NUM,MONTH,DATE]: 
                     removeFromList(tokens,i-1)
-            elif tokens[i] == PER and i < len(tokens)-2 and \
-               tokens[i+1] in NAMEWORDS and tokens[i+2] == PER:
-                tokens = removeFromList(tokens,i)
-                tokens = removeFromList(tokens,i)
-            elif tokens[i] == PER and i < len(tokens)-3 and \
-               tokens[i+1] in NAMEWORDS and tokens[i+2] in NAMEWORDS and \
-               tokens[i+3] == PER:
-                tokens = removeFromList(tokens,i)
-                tokens = removeFromList(tokens,i)
-                tokens = removeFromList(tokens,i)
-        i += 1
-    return(tokens)
-
-def compressNElist(tokens):
+                    removedTokens += 1
+            elif tokens[i] in [PER,LOC] and i < len(tokens)-2 and \
+                tokens[i+1].lower() in NAMEWORDS and tokens[i+2] in [PER,LOC]:
+                removeFromList(tokens,i)
+                removeFromList(tokens,i)
+                tokens[i] = PER
+                removedTokens += 2
+            elif tokens[i] == [LOC,PER] and i < len(tokens)-3 and \
+                tokens[i+1].lower() in NAMEWORDS and tokens[i+2].lower() in NAMEWORDS and \
+                tokens[i+3] == [LOC,PER]:
+                removeFromList(tokens,i)
+                removeFromList(tokens,i)
+                removeFromList(tokens,i)
+                tokens[i] = PER
+                removedTokens += 3
+        i += 1-removedTokens
     i = 0
-    while i < len(tokens):
-        if tokens[i] in NETAGS:
-            if tokens[i] == MONTH or tokens[i] == DATE:
-                if i < len(tokens) and tokens[i+1] in [NUM]: tokens[i+1] = DATE
-                tokens[i] = DATE
-                if i > 0 and tokens[i-1] in [DAY,NUM]: tokens[i-1] = DATE
-            elif tokens[i] == PER and i < len(tokens)-2 and \
-               tokens[i+1] in NAMEWORDS and tokens[i+2] == PER:
-                tokens[i+1] = PER
-            elif tokens[i] == PER and i < len(tokens)-3 and \
-               tokens[i+1] in NAMEWORDS and tokens[i+2] in NAMEWORDS and \
-               tokens[i+3] == PER:
-                tokens[i+1] = PER
-                tokens[i+2] = PER
-        i += 1
+    while i < len(tokens)-1:
+        if tokens[i] in NETAGS and tokens[i+1] == tokens[i]: 
+            removeFromList(tokens,i)
+        else:
+            i += 1
     return(tokens)
 
 def isEmailHead(tokens):
@@ -125,7 +119,6 @@ def isEmailHead(tokens):
 def anonymize(tokens,pos,ner,options):
     global names
 
-    formerTokens = list(tokens)
     if not isEmailHead(tokens):
         for i in range(0,len(tokens)):
             if tokens[i] in names.keys():
@@ -148,26 +141,8 @@ def anonymize(tokens,pos,ner,options):
                 tokens[i] = ner[i]
             tokens[i] = re.sub(r"^0\d\d\b","PHONE",tokens[i])
             tokens[i] = re.sub(r"\d\d\d\d\d\d*","PHONE",tokens[i])
-    for i in range(0,len(tokens)):
-        if tokens[i] == "PER" and \
-            (re.search(r"^[Vv][Aa][Nn]$",formerTokens[i]) and
-             re.search(r"^[Dd][Ee]$",formerTokens[i])):
-            if i+1 == len(tokens): tokens[i] = formerTokens[i]
-            elif tokens[i+1] == "LOC": tokens[i+1] = PER
-            elif tokens[i+1] != "PER": tokens[i] = formerTokens[i]
-        if tokens[i] == "PRO" or tokens[i] == "EVE": 
-            tokens[i] = formerTokens[i]
-    if "-l" in options:
-        tokens = compressNElist(tokens)
-        line = ""
-        for i in range(0,len(tokens)):
-            partsT = tokens[i].split("_")
-            partsF = formerTokens[i].split("_")
-            for j in range(0,len(partsT)): 
-                line += partsF[j]+"\t"+partsT[j]+"\n"
-    else:
-        tokens = compressNE(tokens)
-        line = " ".join(tokens)
+    tokens = compressNE(tokens)
+    line = " ".join(tokens)
     return(line)
 
 def readKnownNames():
