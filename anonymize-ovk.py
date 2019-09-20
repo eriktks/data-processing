@@ -32,7 +32,7 @@ NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL,MISC,EVE,PRO}
 TAGNUM = "TW"
 DOMAINS = "(com|net|nl|org)"
 SKIP = { "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" }
-NAMEWORDS = [ "van","de","der","des","vande","vander","ten" ]
+NAMEWORDS = [ "van","de","der","des","vande","vander","ten","vd" ]
 MONTHS = [ "januari","februari","maart","april","mei","juni","juli", \
            "augustus","september","oktober","november","december", \
            "Januari","Februari","Maart","April","Mei","Juni","Juli", \
