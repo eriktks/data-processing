@@ -11,6 +11,7 @@ import getopt
 import random
 import re
 import sys
+import warnings
 
 COMMAND = sys.argv.pop(0)
 USAGE = "usage: "+COMMAND+" [-l]"
@@ -50,7 +51,7 @@ def error(string):
     sys.exit(COMMAND+": error: "+string)
 
 def warn(string):
-    print(COMMAND+": warning: "+string)
+    warnings.warn(COMMAND+": warning: "+string)
 
 def addName(name,myClass):
     global names
@@ -157,7 +158,7 @@ def readKnownNames():
             names[token] = ner
         inFile.close()
     except Exception as e: 
-        print("cannot read new entities from file "+NAMEFILE+": "+str(e),file=sys.stderr)
+        warnings.warn("cannot read new entities from file "+NAMEFILE+": "+str(e))
     return(names,{})
 
 def posTag2base(posTag):
