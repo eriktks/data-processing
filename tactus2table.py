@@ -7,6 +7,7 @@
 """
 
 import csv
+import gzip
 import nltk
 import operator
 import re
@@ -34,6 +35,12 @@ MAILBODYID = 5
 OUTPUTDIR = "/home/erikt/projects/e-mental-health/usb/output"
 EMAILFILE = OUTPUTDIR+"/emails.csv"
 EMAILHEADING = ["id","sender","receipient","date","subject","text"]
+EMPTYTOKEN = "EMPTY"
+MULTIWORDTOKEN = "MULTIWORD"
+MINVALUE = 5
+REMOVEDTOKEN = "REMOVED"
+
+valueCounts = {}
 
 def cleanupText(text):
     text = re.sub(r"\s+"," ",text)
@@ -136,6 +143,53 @@ def store(array,outFileName):
         for row in array: csvwriter.writerow(row)
     csvfile.close()
 
+def removeInitialKeywords(value):
+    return(re.sub("^.*:\s*","",value))
+
+def removeDoubleQuotes(value):
+    return(cleanupText(re.sub(r"\"","",value)))
+
+def removeCommas(value):
+    return(cleanupText(re.sub(r","," ",value)))
+
+def isEmptyString(value):
+    return(re.search(r"^\s*$",value))
+
+def getFirstWordIfNumber(value):
+    return(re.search(r"(\d+)\s",value))
+
+def isMultiword(value):
+    return(re.search(r"\s",value))
+
+def isMailAddress(value):
+    return(re.search(r"@",value))
+
+def isPhoneNumber(value):
+    return(re.search(r"\d\d\d\d\d",value))
+
+def count(value,questionaireTitle):
+    global valueCounts
+    if not questionaireTitle in valueCounts: 
+        valueCounts[questionaireTitle] = {}
+    if value in valueCounts[questionaireTitle]: 
+        valueCounts[questionaireTitle][value] += 1
+    else: 
+        valueCounts[questionaireTitle][value] = 1
+    return()
+
+def summarizeCellValueFirst(value,questionaireTitle):
+    value = removeCommas(removeDoubleQuotes(removeInitialKeywords(value))).lower()
+    if isEmptyString(value): return(EMPTYTOKEN)
+    count(value,questionaireTitle)
+    return(value)
+
+def summarizeCellValueLast(value):
+    firstWordIfNumber = getFirstWordIfNumber(value)
+    if firstWordIfNumber != None: return(firstWordIfNumber[1])
+    elif isMultiword(value): return(MULTIWORDTOKEN)
+    elif isMailAddress(value) or isPhoneNumber(value): return(REMOVEDTOKEN)
+    else: return(value)
+
 def getQuestionnaires(root,thisId):
     qs = []
     for questionnaires in INTAKEQUESTIONNAIRE,QUESTIONNAIRE:
@@ -147,7 +201,7 @@ def getQuestionnaires(root,thisId):
                     try:
                         key = answer.attrib["ID"]
                         value = cleanupText(answer.findall("./answerText")[0].text)
-                        q[key] = value
+                        q[key] = summarizeCellValueFirst(value,title)
                     except: continue 
                 qs.append(q)
     return(qs)
@@ -165,6 +219,13 @@ def getColumns(questionnaires,title):
                 columns[field] = True
     return(columns)
 
+def countsFilter(value,questionaireTitle):
+    global valueCounts
+    if questionaireTitle in valueCounts and \
+       value in valueCounts[questionaireTitle] and \
+       valueCounts[questionaireTitle][value] >= MINVALUE: return(value)
+    else: return(summarizeCellValueLast(value))
+
 def storeDictTitles(questionnaires):
     titles = getTitles(questionnaires)
     for title in titles.keys():
@@ -180,22 +241,32 @@ def storeDictTitles(questionnaires):
                 if questionnaire["title"] == title:
                     row = []
                     for columnName in sorted(columns.keys()): 
-                        try: row.append(questionnaire[columnName])
-                        except: row.append("")
+                        try: row.append(countsFilter(questionnaire[columnName],title))
+                        except: row.append(EMPTYTOKEN)
                     csvwriter.writerow(row)
             csvfile.close()
     return()
 
+def readRootFromFile(inFileName):
+    if re.search(r"\.gz$",inFileName):
+        inFile = gzip.open(inFileName,"rb")
+        inFileContent = inFile.read()
+        inFile.close()
+        return(ET.fromstring(inFileContent))
+    else: 
+        tree = ET.parse(inFileName)
+        root = tree.getroot()
+        return(root)
+
 def main(argv):
     emails = []
     questionnaires = []
-    for inFile in sys.argv:
-        tree = ET.parse(inFile)
-        root = tree.getroot()
-        thisId = makeId(inFile)
+    for inFileName in sys.argv:
+        root = readRootFromFile(inFileName)
+        thisId = makeId(inFileName)
         emails.extend(getEmailData(root,thisId))
         questionnaires.extend(getQuestionnaires(root,thisId))
-    if len(emails) > 0: store(emails,EMAILFILE)
+    # if len(emails) > 0: store(emails,EMAILFILE)
     storeDictTitles(questionnaires)
     return(0)
 
