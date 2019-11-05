@@ -1,5 +1,8 @@
 e-Mental Health: Data Processing
-===============================
+================================
+
+[![Maintainability](https://api.codeclimate.com/v1/badges/fbc09669dbc8c0449e0e/maintainability)](https://codeclimate.com/github/e-mental-health/data-processing/maintainability)
+
 Data processing scripts of the e-Mental Health project. The scripts deal with two data sets: OVK and Tactus
 
 OVK mails
