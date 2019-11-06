@@ -13,13 +13,15 @@ import operator
 import re
 import sys
 import xml.etree.ElementTree as ET
+from operator import itemgetter
 
 COMMAND = sys.argv.pop(0)
 USAGE = "usage: "+COMMAND+" file1 [file2 ...]"
 INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
 QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
-ANSWERS = "./Content/question/answer"
+QUESTIONS = "./Content/question"
+ANSWERS = "./answer"
 MESSAGES = "./Messages/Message"
 AGE = "leeftijd"
 CLIENT = "CLIENT"
@@ -39,7 +41,9 @@ EMPTYTOKEN = "EMPTY"
 MULTIWORDTOKEN = "MULTIWORD"
 MINVALUE = 5
 REMOVEDTOKEN = "REMOVED"
+SEPARATOR= "-"
 
+exceptions = {"medi0":True,"medi00":True,"drugs0":True}
 valueCounts = {}
 
 def cleanupText(text):
@@ -191,30 +195,45 @@ def summarizeCellValueLast(value):
     else: return(value)
 
 def getQuestionnaires(root,thisId):
+    global exceptions
     qs = []
     for questionnaires in INTAKEQUESTIONNAIRE,QUESTIONNAIRE:
         for questionnaire in root.findall(questionnaires):
             title = cleanupText(questionnaire.findall("./Title")[0].text)
             if title in QUESTIONNAIRETITLES:
-                q = {"title":title,"id":thisId}
-                for answer in questionnaire.findall(ANSWERS):
-                    try:
-                        key = answer.attrib["ID"]
-                        value = cleanupText(answer.findall("./answerText")[0].text)
-                        q[key] = summarizeCellValueFirst(value,title)
-                    except: continue 
+                q = {"0-title":title,"0-id":thisId}
+                for question in questionnaire.findall(QUESTIONS):
+                    numbers = question.findall("./questionNumber")
+                    if numbers != None and len(numbers) > 0:
+                        number = cleanupText(numbers[0].text)
+                        for answer in question.findall(ANSWERS):
+                            try:
+                                key = answer.attrib["ID"]
+                                shortKey = key
+                                if not key in exceptions:
+                                    shortKey = re.sub(r"t0$",r"",shortKey)
+                                    #shortKey = re.sub(r"([a-z])0*$",r"\1",shortKey)
+                                    #shortKey = re.sub(r"([a-rs-z0-9])t*$",r"\1",shortKey)
+                                value = cleanupText(answer.findall("./answerText")[0].text)
+                                summary = summarizeCellValueFirst(value,title)
+                                if summary != "" and summary != EMPTYTOKEN:
+                                    qKey = number+SEPARATOR+shortKey
+                                    if qKey in q:
+                                        print("clash for",thisId,title,shortKey,qKey,":",q[qKey],"<>",summary)
+                                    q[qKey] = summary
+                            except: continue 
                 qs.append(q)
     return(qs)
 
 def getTitles(questionnaires):
     titles = {}
-    for q in questionnaires: titles[q["title"]] = True
+    for q in questionnaires: titles[q["0-title"]] = True
     return(titles)
 
 def getColumns(questionnaires,title):
     columns = {}
     for questionnaire in questionnaires:
-        if questionnaire["title"] == title:
+        if questionnaire["0-title"] == title:
             for field in questionnaire.keys():
                 columns[field] = True
     return(columns)
@@ -226,6 +245,18 @@ def countsFilter(value,questionaireTitle):
        valueCounts[questionaireTitle][value] >= MINVALUE: return(value)
     else: return(summarizeCellValueLast(value))
 
+def keyCombine(number,string):
+    return(str(number)+SEPARATOR+string)
+
+def keySplit(key):
+    keyParts = key.split(SEPARATOR)
+    return(int(keyParts[0]),keyParts[1])
+
+def sortKeys(keys):
+    splitKeys = [keySplit(k) for k in keys]
+    sortedKeys = sorted(splitKeys,key=itemgetter(0,1))
+    return([keyCombine(k[0],k[1]) for k in sortedKeys])
+
 def storeDictTitles(questionnaires):
     titles = getTitles(questionnaires)
     for title in titles.keys():
@@ -234,13 +265,13 @@ def storeDictTitles(questionnaires):
         with open(outFileName,"w",encoding="utf8") as csvfile:
             csvwriter = csv.writer(csvfile,delimiter=',',quotechar='"')
             heading = []
-            for columnName in sorted(columns.keys()): 
+            for columnName in sortKeys(columns.keys()): 
                 heading.append(columnName)
             csvwriter.writerow(heading)
             for questionnaire in questionnaires:
-                if questionnaire["title"] == title:
+                if questionnaire["0-title"] == title:
                     row = []
-                    for columnName in sorted(columns.keys()): 
+                    for columnName in sortKeys(columns.keys()):
                         try: row.append(countsFilter(questionnaire[columnName],title))
                         except: row.append(EMPTYTOKEN)
                     csvwriter.writerow(row)
