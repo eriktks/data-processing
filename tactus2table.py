@@ -209,17 +209,12 @@ def getQuestionnaires(root,thisId):
                         for answer in question.findall(ANSWERS):
                             try:
                                 key = answer.attrib["ID"]
-                                shortKey = key
-                                if not key in exceptions:
-                                    shortKey = re.sub(r"t0$",r"",shortKey)
-                                    #shortKey = re.sub(r"([a-z])0*$",r"\1",shortKey)
-                                    #shortKey = re.sub(r"([a-rs-z0-9])t*$",r"\1",shortKey)
                                 value = cleanupText(answer.findall("./answerText")[0].text)
                                 summary = summarizeCellValueFirst(value,title)
                                 if summary != "" and summary != EMPTYTOKEN:
-                                    qKey = number+SEPARATOR+shortKey
+                                    qKey = number+SEPARATOR+key
                                     if qKey in q:
-                                        print("clash for",thisId,title,shortKey,qKey,":",q[qKey],"<>",summary)
+                                        print("clash for",thisId,title,shortkey,qKey,":",q[qKey],"<>",summary)
                                     q[qKey] = summary
                             except: continue 
                 qs.append(q)
