@@ -32,7 +32,7 @@ PRO = "PRO"
 NETAGS = {PER,LOC,ORG,NUM,DAY,DATE,MONTH,MAIL,MISC,EVE,PRO}
 TAGNUM = "TW"
 DOMAINS = "(com|net|nl|org)"
-SKIP = { "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" }
+SKIP = {} # { "EFrom","EDate","ETo","Verzonden","Van","Aan","From","To","Date","Sent" }
 NAMEWORDS = [ "van","de","der","des","vande","vander","ten","vd" ]
 MONTHS = [ "januari","februari","maart","april","mei","juni","juli", \
            "augustus","september","oktober","november","december", \
@@ -125,13 +125,16 @@ def anonymize(tokens,pos,ner,options):
             if tokens[i] in names.keys():
                 if names[tokens[i]] != NEOTHER: 
                     tokens[i] = names[tokens[i]]
-            elif pos[i] == TAGNUM or re.search(r"^\d+$",tokens[i]) or \
-               re.search(r"^-\d+$",tokens[i]) or re.search(r"^\d+\.\d+$",tokens[i]): 
+            elif pos[i] == TAGNUM or re.search(r"^\d",tokens[i]) or re.search(r"^-\d",tokens[i]): 
                 tokens[i] = NUM
             elif tokens[i] in MONTHS:
                 tokens[i] = MONTH
             elif tokens[i] in WEEKDAYS:
                 tokens[i] = DAY
+            elif tokens[i] == "@":
+                tokens[i] = MAIL
+                if i > 0: tokens[i-1] = MAIL
+                if i < len(tokens)-1: tokens[i+1] = MAIL
             elif re.search(r"@",tokens[i]):
                 tokens[i] = MAIL
             elif re.search(r"^www\.",tokens[i],re.IGNORECASE) or \
