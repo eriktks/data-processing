@@ -211,11 +211,10 @@ def getQuestionnaires(root,thisId):
                                 key = answer.attrib["ID"]
                                 value = cleanupText(answer.findall("./answerText")[0].text)
                                 summary = summarizeCellValueFirst(value,title)
-                                if summary != "" and summary != EMPTYTOKEN:
-                                    qKey = number+SEPARATOR+key
-                                    if qKey in q:
-                                        print("clash for",thisId,title,shortkey,qKey,":",q[qKey],"<>",summary)
-                                    q[qKey] = summary
+                                qKey = number+SEPARATOR+key
+                                if qKey in q:
+                                    print("clash for",thisId,title,shortkey,qKey,":",q[qKey],"<>",summary)
+                                q[qKey] = summary
                             except: continue 
                 qs.append(q)
     return(qs)
