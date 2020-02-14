@@ -62,7 +62,7 @@ def anonymizeCounselor(name):
     else: return(name)
 
 def tokenize(text):
-    return(" ".join(nltk.word_tokenize(text)))
+    return(" ".join(nltk.word_tokenize(text,language='dutch')))
 
 def getEmailData(root,thisId):
     clientMails = []
@@ -91,19 +91,24 @@ def getEmailData(root,thisId):
 
 # the sentence chunks produced by nltk are quite coarse and
 # leave too much of the quoted text in the emails
-def sentenceSplitNltk(text): return(nltk.sent_tokenize(text))
+def sentenceSplitNltk(text): return(nltk.sent_tokenize(text,language='dutch'))
 
-def sentenceSplit(text):
+def sentenceSplitLocal(text):
     tokens = text.split()
     sentence = []
     sentences = []
     for token in tokens:
         sentence.append(token)
         if not re.search(r"[a-zA-Z0-9'\"]",token): 
-            sentences.append(" ".join(sentence))
+            if len(sentence) == 1 and len(sentences) > 0:
+                sentences[-1] += " "+" ".join(sentence)
+            else: sentences.append(" ".join(sentence))
             sentence = []
     if len(sentence) > 0: sentences.append(" ".join(sentence))
     return(sentences)
+
+def sentenceSplit(text):
+    return(sentenceSplitNltk(text))
 
 def cleanupMails(clientMails, counselorMails):
     clientSentenceDates = {}
