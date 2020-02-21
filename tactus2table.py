@@ -18,8 +18,10 @@ from operator import itemgetter
 COMMAND = sys.argv.pop(0)
 USAGE = "usage: "+COMMAND+" file1 [file2 ...]"
 INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
+INTAKETITLEALTERNATIVE = "Vragenlijst"
+INTAKE = "Intake"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
-QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
+QUESTIONNAIRETITLES = { INTAKE:True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
 QUESTIONS = "./Content/question"
 ANSWERS = "./answer"
 MESSAGES = "./Messages/Message"
@@ -205,6 +207,7 @@ def getQuestionnaires(root,thisId):
     for questionnaires in INTAKEQUESTIONNAIRE,QUESTIONNAIRE:
         for questionnaire in root.findall(questionnaires):
             title = cleanupText(questionnaire.findall("./Title")[0].text)
+            if title == INTAKETITLEALTERNATIVE: title = INTAKE
             if title in QUESTIONNAIRETITLES:
                 q = {"0-title":title,"0-id":thisId}
                 for question in questionnaire.findall(QUESTIONS):
