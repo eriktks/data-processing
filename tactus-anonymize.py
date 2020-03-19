@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
     tactus-anonymize.py: anonymize tactus file
     usage: python3 tactus-anonymyze.py [-l lang] file1.xml [file2.xml ...]
@@ -14,9 +14,14 @@ import xml.etree.ElementTree as ET
 
 COMMAND = sys.argv.pop(0)
 BINDIR = "/home/erikt/projects/e-mental-health/data-processing"
+DATADIR = "/home/erikt/projects/e-mental-health/usb/tmp"
 ANONYMIZEPRG = "anonymize-dut.sh"
+COUNSELORFILE = "counselors.txt"
 ANONYMIZETAGS = ["Body","Subject", "Notes"]
-CLEARTAGS = ["AssignedCounselor","Intake","Treatment","Diary","Sender","Recipients"]
+COUNSELORTAG = "AssignedCounselor"
+FIRSTNAMETAG = "FirstName"
+LASTNAMETAG = "LastName"
+CLEARTAGS = ["Intake","Treatment","Diary","Sender","Recipients"]
 CLEARTOKEN = "REMOVED"
 CLEAREDSTRINGIDS = {"client":"CLIENT"}
 OUTFILESUFFIX = "-an"
@@ -24,6 +29,7 @@ TMPFILENAME = "tactus-anonymize.py."+str(os.getpid())
 BOUNDARY = "tactus-anonymize-py-mail-text-boundary"
 
 clearedStringIds = CLEAREDSTRINGIDS
+counselorIds = {}
 
 def getRootOfFile(inFileName):
     return(ET.parse(inFileName))
@@ -33,6 +39,20 @@ def normalizeWhiteSpace(string):
     string = re.sub("\s+$","",string)
     string = re.sub("\s+"," ",string)
     return(string)
+
+def readCounselors():
+    global counselorIds
+
+    try:
+        inFile = open(DATADIR+"/"+COUNSELORFILE,"r")
+        for line in inFile:
+            fields = normalizeWhiteSpace(line).strip().split()
+            thisId = fields.pop(0)
+            counselor = normalizeWhiteSpace(" ".join(fields))
+            counselorIds[counselor] = thisId
+        inFile.close()
+    except: 
+        sys.exit("error reading counselor file: "+DATADIR+"/"+COUNSELORFILE)
 
 def removeTagText(tag):
     global clearedStringIds
@@ -55,6 +75,37 @@ def clearTexts(tree,tagNames):
        for tag in root.findall(".//"+tagName):
            removeTagText(tag)
            removeTagChildren(tag)
+
+def getChildText(tag,childName):
+    childText = ""
+    for child in tag.findall("./"+childName):
+        try:
+            if childText == "": childText = normalizeWhiteSpace(child.text)
+            else: childText += " "+normalizeWhiteSpace(child.text)
+        except: pass
+    return(childText)
+
+def getCounselorId(firstName,lastName):
+    global counselorIds
+
+    if firstName == "" and lastName == "": return("")
+    name = normalizeWhiteSpace(firstName+" "+lastName)
+    if not name in counselorIds: 
+        counselorIds[name] = 1+len(counselorIds)
+        try: outFile = open(DATADIR+"/"+COUNSELORFILE,"a")
+        except: sys.exit("error writing counselor file: "+DATADIR+"/"+COUNSELORFILE)
+        print(counselorIds[name],name,file=outFile)
+        outFile.close()
+    return(counselorIds[name])
+
+def anonymizeCounselor(tree):
+    root = tree.getroot()
+    for tag in root.findall(".//"+COUNSELORTAG):
+        firstName = getChildText(tag,FIRSTNAMETAG)
+        lastName = getChildText(tag,LASTNAMETAG)
+        removeTagText(tag)
+        removeTagChildren(tag)
+        tag.text = str(getCounselorId(firstName,lastName))
 
 def getTextFromXmlText(text):
     try: textTree = ET.fromstring("<container>"+text+"</container>")
@@ -127,9 +178,11 @@ def makeOutFileName(fileName):
 def main(argv):
     global clearedStringIds
 
+    readCounselors()
     for inFileName in argv:
         clearedStringIds = CLEAREDSTRINGIDS
         tree = getRootOfFile(inFileName)
+        anonymizeCounselor(tree)
         clearTexts(tree,CLEARTAGS)
         anonymizeTexts(tree,ANONYMIZETAGS)
         writeFile(tree,makeOutFileName(inFileName))

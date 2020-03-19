@@ -6,8 +6,7 @@
 BINDIR="/home/erikt/projects/e-mental-health/data-processing"
 INFILE="$1"
 
-source activate python
-python3 $BINDIR/ner-frog.py < $INFILE |\
-   python3 $BINDIR/anonymize-ovk.py -n
+python $BINDIR/ner-frog.py < $INFILE |\
+   python $BINDIR/anonymize-ovk.py -n
 
 exit 0
