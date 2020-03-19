@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -W all
+#!/bin/env python -W all
 # anonymize.py: remove personal information from any text file
 # usage: anonymize.py [-l] [-n] < nerfile
 # notes:
@@ -138,7 +138,9 @@ def anonymize(tokens,pos,ner,options):
             elif re.search(r"@",tokens[i]):
                 tokens[i] = MAIL
             elif re.search(r"^www\.",tokens[i],re.IGNORECASE) or \
-                 re.search(r"\."+DOMAINS+"$",tokens[i],re.IGNORECASE):
+                 re.search(r"\."+DOMAINS+"$",tokens[i],re.IGNORECASE) or \
+                 re.search(r"^http:",tokens[i],re.IGNORECASE) or \
+                 re.search(r"^https:",tokens[i],re.IGNORECASE):
                 tokens[i] = ORG
             elif ner[i] != NEOTHER:
                 addName(tokens[i],ner[i])
