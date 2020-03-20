@@ -21,7 +21,8 @@ ANONYMIZETAGS = ["Body","Subject", "Notes"]
 COUNSELORTAG = "AssignedCounselor"
 FIRSTNAMETAG = "FirstName"
 LASTNAMETAG = "LastName"
-CLEARTAGS = ["Intake","Treatment","Diary","Sender","Recipients"]
+KEEPTAGS = ["Dossier","AssignedCounselor","Messages","Message","DateSent","Subject","Body"]
+KEEPTAGSTEXTTRACE = ["Sender","Recipients"]
 CLEARTOKEN = "REMOVED"
 CLEAREDSTRINGIDS = {"client":"CLIENT"}
 OUTFILESUFFIX = "-an"
@@ -54,27 +55,30 @@ def readCounselors():
     except: 
         sys.exit("error reading counselor file: "+DATADIR+"/"+COUNSELORFILE)
 
-def removeTagText(tag):
+def removeTagText(tag,tagNamesKeepTextTrace):
     global clearedStringIds
 
     if not tag.text is None:
-        tag.text = normalizeWhiteSpace(tag.text)
-        if tag.text != "":
-            text = tag.text.lower()
-            if not text in clearedStringIds:
-                clearedStringIds[text] = CLEARTOKEN+"-"+str(len(clearedStringIds.keys()))
-            tag.text = clearedStringIds[text]
+        if not tag.tag in tagNamesKeepTextTrace:
+            tag.text = ""
+        else:
+            tag.text = normalizeWhiteSpace(tag.text)
+            if tag.text != "":
+                text = tag.text.lower()
+                if not text in clearedStringIds:
+                    clearedStringIds[text] = CLEARTOKEN+"-"+str(len(clearedStringIds.keys()))
+                tag.text = clearedStringIds[text]
 
 def removeTagChildren(tag):
     for child in [c for c in tag]:   
         tag.remove(child)
 
-def clearTexts(tree,tagNames):
+def clearTexts(tree,tagNamesKeep,tagNamesKeepTextTrace):
     root = tree.getroot()
-    for tagName in tagNames:
-       for tag in root.findall(".//"+tagName):
-           removeTagText(tag)
-           removeTagChildren(tag)
+    for tag in root.iter():
+        if not tag.tag in tagNamesKeep:
+            removeTagText(tag,tagNamesKeepTextTrace)
+            removeTagChildren(tag)
 
 def getChildText(tag,childName):
     childText = ""
@@ -98,12 +102,12 @@ def getCounselorId(firstName,lastName):
         outFile.close()
     return(counselorIds[name])
 
-def anonymizeCounselor(tree):
+def anonymizeCounselor(tree,tagNamesKeepTextTrace):
     root = tree.getroot()
     for tag in root.findall(".//"+COUNSELORTAG):
         firstName = getChildText(tag,FIRSTNAMETAG)
         lastName = getChildText(tag,LASTNAMETAG)
-        removeTagText(tag)
+        removeTagText(tag,tagNamesKeepTextTrace)
         removeTagChildren(tag)
         tag.text = str(getCounselorId(firstName,lastName))
 
@@ -182,8 +186,8 @@ def main(argv):
     for inFileName in argv:
         clearedStringIds = CLEAREDSTRINGIDS
         tree = getRootOfFile(inFileName)
-        anonymizeCounselor(tree)
-        clearTexts(tree,CLEARTAGS)
+        anonymizeCounselor(tree,KEEPTAGSTEXTTRACE)
+        clearTexts(tree,KEEPTAGS,KEEPTAGSTEXTTRACE)
         anonymizeTexts(tree,ANONYMIZETAGS)
         writeFile(tree,makeOutFileName(inFileName))
     return(0)
