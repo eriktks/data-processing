@@ -12,6 +12,9 @@ INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
 QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
 QUESTIONS = "./Content/question"
+TITLE = "title"
+ANSWER = "answer"
+QUESTIONNUMBER = "questionNumber"
 
 def cleanupText(text):
     text = re.sub(r"\s+"," ",text)
@@ -30,21 +33,30 @@ def main(argv):
             title = cleanupText(questionnaire.findall("./Title")[0].text)
             print("###",title)
             if title in QUESTIONNAIRETITLES:
+                questionNumber = "0"
                 for question in questionnaire.findall(QUESTIONS):
                     questionTitle = ""
+                    numbers = question.findall("./questionNumber")
+                    if numbers != None and len(numbers) > 0:
+                        questionNumber = cleanupText(numbers[0].text)
+                    else:
+                        questionNumber = str(int(questionNumber)+1)
                     for elementQ in question:
-                        if elementQ.tag == "title": 
+                        if elementQ.tag == TITLE: 
                             questionTitle = cleanupText(elementQ.text)
-                        if elementQ.tag == "answer": 
+                        if elementQ.tag == QUESTIONNUMBER: 
+                            questionNumber = cleanupText(elementQ.text)
+                        if elementQ.tag == ANSWER: 
                             ID = elementQ.attrib["ID"]
                             answerTitle = ""
                             for elementA in elementQ:
-                                if elementA.tag == "title": 
+                                if elementA.tag == TITLE: 
                                     answerTitle = cleanupText(elementA.text)
                             if answerTitle == "":
-                                print(ID,questionTitle)
+                                print(questionNumber,ID,questionTitle)
                             else:
-                                print(ID,answerTitle)
+                                print(questionNumber,ID,answerTitle)
+                                questionTitle = answerTitle
  
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
