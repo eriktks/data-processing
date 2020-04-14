@@ -44,6 +44,8 @@ MULTIWORDTOKEN = "MULTIWORD"
 MINVALUE = 5
 REMOVEDTOKEN = "REMOVED"
 SEPARATOR= "-"
+ID = "ID"
+NOID = "NOID"
 
 exceptions = {"medi0":True,"medi00":True,"drugs0":True}
 valueCounts = {}
@@ -204,6 +206,7 @@ def summarizeCellValueLast(value):
 def getQuestionnaires(root,thisId):
     global exceptions
     qs = []
+    number = "0"
     for questionnaires in INTAKEQUESTIONNAIRE,QUESTIONNAIRE:
         for questionnaire in root.findall(questionnaires):
             title = cleanupText(questionnaire.findall("./Title")[0].text)
@@ -214,16 +217,19 @@ def getQuestionnaires(root,thisId):
                     numbers = question.findall("./questionNumber")
                     if numbers != None and len(numbers) > 0:
                         number = cleanupText(numbers[0].text)
-                        for answer in question.findall(ANSWERS):
-                            try:
-                                key = answer.attrib["ID"]
-                                value = cleanupText(answer.findall("./answerText")[0].text)
-                                summary = summarizeCellValueFirst(value,title)
-                                qKey = number+SEPARATOR+key
-                                if qKey in q:
-                                    print("clash for",thisId,title,shortkey,qKey,":",q[qKey],"<>",summary)
-                                q[qKey] = summary
-                            except: continue 
+                    else:
+                        number = str(int(number)+1)
+                    for answer in question.findall(ANSWERS):
+                        if ID in answer.attrib.keys(): key = answer.attrib[ID]
+                        else: key = NOID
+                        answerTexts = answer.findall("./answerText")
+                        if len(answerTexts) > 0: value = cleanupText(answerTexts[0].text)
+                        else: value = ""
+                        summary = summarizeCellValueFirst(value,title)
+                        qKey = number+SEPARATOR+key
+                        if qKey in q:
+                            print("clash for",thisId,title,shortkey,qKey,":",q[qKey],"<>",summary)
+                        q[qKey] = summary
                 qs.append(q)
     return(qs)
 
