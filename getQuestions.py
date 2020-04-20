@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 INTAKEQUESTIONNAIRE = "./Intake/Questionnaire"
 QUESTIONNAIRE = "./Treatment/TreatmentSteps/TreatmentStep/Questionnaire"
-QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True }
+QUESTIONNAIRETITLES = { "Intake":True,"Lijst tussenmeting":True,"Lijst nameting":True,"Lijst 3 maanden":True,"Lijst half jaar":True, "Vragenlijst":True }
 QUESTIONS = "./Content/question"
 TITLE = "title"
 ANSWER = "answer"
