@@ -1,8 +1,9 @@
-e-Mental Health: Data Processing
-================================
+Data Processing (What Works When for Whom?)
+===========================================
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/c8919c12df0e4c548e7bcff3d55818ae)](https://www.codacy.com/manual/eriktks/data-processing_2?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=e-mental-health/data-processing&amp;utm_campaign=Badge_Grade)
 [![Maintainability](https://api.codeclimate.com/v1/badges/fbc09669dbc8c0449e0e/maintainability)](https://codeclimate.com/github/e-mental-health/data-processing/maintainability)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=e-mental-health_data-processing&metric=alert_status)](https://sonarcloud.io/dashboard?id=e-mental-health_data-processing)
 
 Data processing scripts of the e-Mental Health project. The scripts deal with two data sets: OVK and Tactus
 
