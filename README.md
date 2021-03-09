@@ -2,6 +2,7 @@ Data Processing (What Works When for Whom?)
 ===========================================
 
 [![DOI](https://zenodo.org/badge/129427565.svg)](https://zenodo.org/badge/latestdoi/129427565)
+[![fair-software.eu](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
 [![Research Software Directory](https://img.shields.io/badge/rsd-Research%20Software%20Directory-00a3e3.svg)](https://www.research-software.nl/software/dataprocessing)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=e-mental-health_data-processing&metric=alert_status)](https://sonarcloud.io/dashboard?id=e-mental-health_data-processing)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/c8919c12df0e4c548e7bcff3d55818ae)](https://www.codacy.com/manual/eriktks/data-processing_2?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=e-mental-health/data-processing&amp;utm_campaign=Badge_Grade)
