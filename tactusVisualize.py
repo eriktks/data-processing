@@ -460,7 +460,7 @@ def summarizeFeature(file,feature,target=None):
 
 def summarizeMail(file,mail):
     data = readData(file)
-    summary = summarizeDataMail(data,mail-1,target)
+    summary = summarizeDataMail(data,mail-1)
     printSummary(data,summary,MAIL)
 
 def summarize(file,target=None):
