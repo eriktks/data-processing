@@ -1,0 +1,44 @@
+#!/bin/bash
+# verify-counselors.bash: verify counselors in summary file
+# usage: verify-counselors.bash file.csv
+# note: expected input file: ovk-data-wide.csv
+# 20180628 erikt(at)xs4all.nl
+
+COMMAND=$0
+CSVFILE=$1
+if [ "$CSVFILE" == "" ]
+then
+   echo usage: $COMMAND file.csv  >&2
+   exit 1
+fi
+if [ ! -f $CSVFILE ]
+then
+   echo $COMMAND: cannot open file $INFILE >&2
+   exit 1
+fi
+if [ -z "`grep C1 $CSVFILE`" ]
+then
+   echo $COMMAND: unexpected content in $INFILE >&2
+   exit 1
+fi
+
+for C in C1 C2 C3 C4 C5
+do
+   for T in AS ES
+   do
+      for ID in `grep "\b$C\b" $CSVFILE | grep "\b$T\b" | cut -d, -f1 | tail -n +2 | sort -u`
+      do
+         FILE="../../$T/text/$ID.text.ner.out"
+         if [ ! -f $FILE ]
+         then
+            echo -e "$COMMAND: cannot open file $FILE!\n"
+         else
+		 grep -e "Aan :" -e "From :" -e "To :" -e "Van :" $FILE | sort | uniq -c
+            echo
+         fi
+      done
+   done
+   echo -e "####################################################################\n"
+done
+
+exit 0
